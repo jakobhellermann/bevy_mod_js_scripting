@@ -96,9 +96,9 @@ fn load_scripts(
     for event in events.iter() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                let mut runtime = create_runtime();
                 let js_script = assets.get(handle).unwrap();
 
+                let mut runtime = create_runtime(js_script.path.clone());
                 let name = js_script.path.display().to_string();
 
                 let status = match runtime.execute_script(&name, &js_script.source) {
@@ -118,8 +118,8 @@ fn load_scripts(
     }
 }
 
-fn run_js_script<'a>(_world: &mut World, runtime: &'a mut JsRuntime) {
-    let res = (|| -> Result<(), anyhow::Error> {
+fn run_js_script(world: &mut World, runtime: &mut JsRuntime) {
+    let res = runtime::with_world(world, runtime, |runtime| {
         let context = runtime.global_context();
         let context = context.open(runtime.v8_isolate());
         let scope = &mut runtime.handle_scope();
@@ -136,7 +136,7 @@ fn run_js_script<'a>(_world: &mut World, runtime: &'a mut JsRuntime) {
         run_fn.call(scope, undefined.into(), &[undefined.into()]);
 
         Ok(())
-    })();
+    });
 
     if let Err(e) = res {
         warn!("script failed to run: {:?}", e);
