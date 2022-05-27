@@ -1,11 +1,13 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
+    asset::AssetServerSettings,
     core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
 };
+use bevy_mod_js_scripting::{AddJsSystem, JsScriptingPlugin};
 
 // Defines the amount of time that should elapse between each physics step.
 const TIME_STEP: f32 = 1.0 / 60.0;
@@ -54,7 +56,12 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
+        .add_plugin(JsScriptingPlugin)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
@@ -64,9 +71,10 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(check_for_collisions)
                 .with_system(move_paddle.before(check_for_collisions))
-                .with_system(apply_velocity.before(check_for_collisions))
+                .with_system(apply_velocity.before(check_for_collisions)),
         )
         .add_system(update_scoreboard)
+        .add_js_system("scripts/debug.js")
         .run();
 }
 
@@ -401,4 +409,3 @@ fn check_for_collisions(
         }
     }
 }
-
