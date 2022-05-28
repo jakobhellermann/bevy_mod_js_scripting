@@ -20,10 +20,21 @@ type ComponentInfo = {
     size: number;
 };
 
+type QueryDescriptor = {
+    components: ComponentId[],
+};
+
+type QueryItem = {
+    entity: Entity,
+    components: unknown[],
+};
+
 declare class World {
     get components(): ComponentInfo[];
     get resources(): ComponentInfo[];
     get entities(): Entity[];
+
+    query(descriptor: QueryDescriptor): QueryItem[];
 }
 
 declare let world: World;

@@ -18,6 +18,7 @@ typescript = [
 anyhow = "1.0.57"
 bevy = { version = "0.8.0-dev", default-features = false }
 bevy_reflect = "0.8.0-dev"
+fixedbitset = "0.4"
 
 deno_core = "0.136.0"
 serde = "1.0"

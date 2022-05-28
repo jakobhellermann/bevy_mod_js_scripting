@@ -3,9 +3,8 @@ use bevy::{
     prelude::*,
     utils::HashSet,
 };
-use deno_core::{
-    error::AnyError, include_js_files, op, serde::Serialize, Extension, OpState, ResourceId,
-};
+use deno_core::{error::AnyError, include_js_files, op, Extension, OpState, ResourceId};
+use serde::{Deserialize, Serialize};
 
 use super::WorldResource;
 
@@ -17,13 +16,18 @@ fn op_world_tostring(state: &mut OpState, rid: ResourceId) -> Result<String, Any
     Ok(format!("{world:?}"))
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct JsComponentId {
     index: usize,
 }
 impl From<ComponentId> for JsComponentId {
     fn from(id: ComponentId) -> Self {
         JsComponentId { index: id.index() }
+    }
+}
+impl From<&JsComponentId> for ComponentId {
+    fn from(id: &JsComponentId) -> Self {
+        ComponentId::new(id.index)
     }
 }
 
@@ -113,6 +117,50 @@ fn op_world_entities(state: &mut OpState, rid: ResourceId) -> Result<Vec<JsEntit
     Ok(entities)
 }
 
+#[derive(Deserialize)]
+struct QueryDescriptor {
+    components: Vec<JsComponentId>,
+}
+
+#[derive(Serialize)]
+struct JsQueryItem {
+    entity: JsEntity,
+    components: Vec<String>,
+}
+
+#[op]
+fn op_world_query(
+    state: &mut OpState,
+    rid: ResourceId,
+    descriptor: QueryDescriptor,
+) -> Result<Vec<JsQueryItem>, AnyError> {
+    use crate::dynamic_query::{DynamicQuery, FetchKind, FetchResult};
+    let world = state.resource_table.get::<WorldResource>(rid)?;
+    let mut world = world.world.borrow_mut();
+
+    let components = descriptor.components.iter().map(ComponentId::from);
+    let fetches = components.map(|id| FetchKind::RefMut(id)).collect();
+
+    let mut query = DynamicQuery::new(&world, fetches, vec![]);
+    let results = query
+        .iter_mut(&mut world)
+        .map(|item| JsQueryItem {
+            entity: item.entity.into(),
+            components: item
+                .items
+                .iter()
+                .map(|item| match item {
+                    FetchResult::Ref(value) => format!("{:?}", value.as_ptr()),
+                    FetchResult::RefMut { value, .. } => format!("{:?}", value.as_ptr()),
+                })
+                .map(|item| format!("{:?}", item))
+                .collect(),
+        })
+        .collect();
+
+    Ok(results)
+}
+
 pub fn extension() -> Extension {
     Extension::builder()
         .ops(vec![
@@ -120,6 +168,7 @@ pub fn extension() -> Extension {
             op_world_components::decl(),
             op_world_resources::decl(),
             op_world_entities::decl(),
+            op_world_query::decl(),
         ])
         .js(include_js_files!(prefix "bevy", "js/ecs.js",))
         .build()

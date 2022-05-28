@@ -30,6 +30,10 @@
         get entities() {
             return Deno.core.opSync("op_world_entities", this.rid);
         }
+
+        query(descriptor) {
+            return Deno.core.opSync("op_world_query", this.rid, descriptor);
+        }
     }
 
     const world = new World();
