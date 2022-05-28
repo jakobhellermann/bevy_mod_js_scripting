@@ -16,8 +16,8 @@ typescript = [
 
 [dependencies]
 anyhow = "1.0.57"
-bevy = { version = "0.7.0", default-features = false }
-bevy_reflect = "0.7.0"
+bevy = { version = "0.8.0-dev", default-features = false }
+bevy_reflect = "0.8.0-dev"
 
 deno_core = "0.136.0"
 swc_common = { version = "0.18.7", optional = true }
@@ -28,4 +28,8 @@ swc_ecma_transforms_typescript = { version = "0.119.0", optional = true }
 swc_ecma_visit = { version = "0.64.0", optional = true }
 
 [dev-dependencies]
-bevy = { version = "0.7.0", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }
+bevy = { version = "0.8.0-dev", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }
+
+[patch.crates-io]
+bevy = { git = "https://github.com/jakobhellermann/bevy", branch = "DEV-dynamic" }
+bevy_reflect = { git = "https://github.com/jakobhellermann/bevy", branch = "DEV-dynamic" }

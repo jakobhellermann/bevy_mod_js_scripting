@@ -2,10 +2,10 @@
 
 use bevy::{
     asset::AssetServerSettings,
-    core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    time::FixedTimestep,
 };
 use bevy_mod_js_scripting::{AddJsSystem, JsScriptingPlugin};
 
@@ -241,7 +241,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         style: Style {
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
                 ..default()
