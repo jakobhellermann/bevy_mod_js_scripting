@@ -1,10 +1,16 @@
-let i = 0;
+
+function filterComponentInfos(infos: ComponentInfo[], prefix: string): string[] {
+    return infos
+        .filter(info => info.name.startsWith(prefix))
+        .map(info => info.name.replace(prefix, ""));
+}
+
+let firstIteration = true;
 function run() {
-    i += 1;
-    if (i % 60 == 0) {
-        info(world.toString());
-        warn(world.toString());
-        trace(world.toString());
-        error(world.toString());
+    if (firstIteration) {
+        firstIteration = false;
+
+        info("Components: " + filterComponentInfos(world.components, "breakout::"));
+        info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
     }
 }

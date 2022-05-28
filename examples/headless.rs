@@ -14,9 +14,7 @@ fn main() {
             watch_for_changes: true,
             ..default()
         })
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_millis(
-            1_000,
-        )))
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_millis(200)))
         .add_plugins(MinimalPlugins)
         .add_plugin(LogPlugin)
         .add_plugin(AssetPlugin)
