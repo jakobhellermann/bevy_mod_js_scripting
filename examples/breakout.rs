@@ -74,7 +74,7 @@ fn main() {
                 .with_system(apply_velocity.before(check_for_collisions)),
         )
         .add_system(update_scoreboard)
-        .add_js_system("scripts/debug.js")
+        .add_js_system("scripts/debug.ts")
         .run();
 }
 

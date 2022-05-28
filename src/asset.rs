@@ -19,6 +19,18 @@ impl AssetLoader for JsScriptLoader {
     ) -> BoxedFuture<'a, anyhow::Result<(), anyhow::Error>> {
         Box::pin(async move {
             let source = String::from_utf8(bytes.to_vec())?;
+
+            #[cfg(feature = "typescript")]
+            let source = if load_context
+                .path()
+                .extension()
+                .map_or(false, |ext| ext == "ts")
+            {
+                crate::ts_to_js::ts_to_js(load_context.path(), &source)?
+            } else {
+                source
+            };
+
             load_context.set_default_asset(LoadedAsset::new(JsScript {
                 source,
                 path: load_context.path().to_path_buf(),
@@ -28,6 +40,10 @@ impl AssetLoader for JsScriptLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["js"]
+        #[cfg(feature = "typescript")]
+        let exts = &["js", "ts"];
+        #[cfg(not(feature = "typescript"))]
+        let exts = &["js", "ts"];
+        exts
     }
 }

@@ -3,12 +3,29 @@ name = "bevy_mod_js_scripting"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["typescript"]
+typescript = [
+  "swc_common",
+  "swc_ecma_codegen",
+  "swc_ecma_parser",
+  "swc_ecma_transforms_base",
+  "swc_ecma_transforms_typescript",
+  "swc_ecma_visit",
+]
+
 [dependencies]
 anyhow = "1.0.57"
 bevy = { version = "0.7.0", default-features = false }
 bevy_reflect = "0.7.0"
 
 deno_core = "0.136.0"
+swc_common = { version = "0.18.7", optional = true }
+swc_ecma_codegen = { version = "0.108.6", optional = true }
+swc_ecma_parser = { version = "0.104.2", optional = true }
+swc_ecma_transforms_base = { version = "0.86.0", optional = true }
+swc_ecma_transforms_typescript = { version = "0.119.0", optional = true }
+swc_ecma_visit = { version = "0.64.0", optional = true }
 
 [dev-dependencies]
 bevy = { version = "0.7.0", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }

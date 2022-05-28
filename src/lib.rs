@@ -1,5 +1,7 @@
 mod asset;
 mod runtime;
+#[cfg(feature = "typescript")]
+mod ts_to_js;
 
 use asset::{JsScript, JsScriptLoader};
 use bevy::utils::HashMap;
