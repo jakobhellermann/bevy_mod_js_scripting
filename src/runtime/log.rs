@@ -4,8 +4,10 @@ use deno_core::{error::AnyError, include_js_files, op, Extension, OpState};
 use super::ScriptInfo;
 
 #[op]
-fn op_log(state: &mut OpState, kind: String, text: String) -> Result<(), AnyError> {
+fn op_log(state: &mut OpState, kind: String, text: serde_json::Value) -> Result<(), AnyError> {
     let info = state.borrow::<ScriptInfo>();
+
+    let text = serde_json::to_string_pretty(&text)?;
 
     let level: Level = kind.parse()?;
     if level == Level::TRACE {
