@@ -75,25 +75,30 @@ fn main() {
         )
         .add_system(update_scoreboard)
         .add_js_system("scripts/debug.ts")
+        .register_type::<Ball>()
+        .register_type::<Paddle>()
+        .register_type::<Velocity>()
+        .register_type::<Collider>()
+        .register_type::<Brick>()
         .run();
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct Paddle;
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct Ball;
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Reflect, Deref, DerefMut)]
 struct Velocity(Vec2);
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct Collider;
 
 #[derive(Default)]
 struct CollisionEvent;
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct Brick;
 
 // This bundle is a collection of the components that define a "wall" in our game

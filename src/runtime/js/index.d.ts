@@ -1,9 +1,16 @@
+declare namespace Deno {
+    namespace core {
+        function opSync(op: string, ...args: any[]): any;
+
+    }
+}
+
 // log.s
-declare function trace(val: any);
-declare function debug(val: any);
-declare function info(val: any);
-declare function warn(val: any);
-declare function error(val: any);
+declare function trace(val: any): void;
+declare function debug(val: any): void;
+declare function info(val: any): void;
+declare function warn(val: any): void;
+declare function error(val: any): void;
 
 // ecs.js
 declare class ComponentId {
@@ -26,8 +33,13 @@ type QueryDescriptor = {
 
 type QueryItem = {
     entity: Entity,
-    components: unknown[],
+    components: any[],
 };
+
+type Primitive = number | string | boolean;
+interface Value {
+    [path: string | number]: Value | Primitive | undefined,
+}
 
 declare class World {
     get components(): ComponentInfo[];
