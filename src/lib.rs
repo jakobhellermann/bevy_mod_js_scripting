@@ -131,14 +131,13 @@ fn run_js_script(world: &mut World, runtime: &mut JsRuntime) {
         let run_fn = global
             .get(scope, run_str.into())
             .ok_or_else(|| anyhow::anyhow!("script has no `run` function"))?;
-        anyhow::ensure!(run_fn.is_function(), "`run` should be a function");
-        // SAFETY: checked in the line above
-        let run_fn = unsafe { v8::Local::<v8::Function>::cast(run_fn) };
+        let run_fn = v8::Local::<v8::Function>::try_from(run_fn)
+            .map_err(|_| anyhow::anyhow!("`run` should be a function"))?;
 
         let undefined = v8::undefined(scope);
         run_fn.call(scope, undefined.into(), &[undefined.into()]);
 
-        Ok(())
+        Ok::<_, anyhow::Error>(())
     });
 
     if let Err(e) = res {
