@@ -6,12 +6,7 @@ edition = "2021"
 [features]
 default = ["typescript"]
 typescript = [
-  "swc_common",
-  "swc_ecma_codegen",
-  "swc_ecma_parser",
-  "swc_ecma_transforms_base",
-  "swc_ecma_transforms_typescript",
-  "swc_ecma_visit",
+  "deno_ast"
 ]
 
 [dependencies]
@@ -21,15 +16,10 @@ bevy_reflect = "0.8.0-dev"
 fixedbitset = "0.4"
 
 deno_core = "0.145.0"
+deno_ast = { version = "0.17.0", features = ["transpiling"], optional = true }
 serde = "1.0"
 serde_json = "1.0"
 
-swc_common = { version = "0.26.0", optional = true }
-swc_ecma_codegen = { version = "0.120.1", optional = true }
-swc_ecma_parser = { version = "0.116.0", optional = true }
-swc_ecma_transforms_base = { version = "0.102.0", optional = true }
-swc_ecma_transforms_typescript = { version = "0.143.0", optional = true }
-swc_ecma_visit = { version = "0.75.0", optional = true }
 
 [dev-dependencies]
 bevy = { version = "0.8.0", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }

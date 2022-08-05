@@ -26,7 +26,7 @@ impl AssetLoader for JsScriptLoader {
                 .extension()
                 .map_or(false, |ext| ext == "ts")
             {
-                crate::ts_to_js::ts_to_js(load_context.path(), &source)?
+                crate::ts_to_js::ts_to_js(load_context.path(), source)?
             } else {
                 source
             };
