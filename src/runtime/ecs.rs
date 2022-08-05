@@ -3,10 +3,10 @@ use std::mem::ManuallyDrop;
 use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
     prelude::*,
-    ptr::Ptr,
     utils::HashSet,
 };
-use bevy_reflect::{GetPath, ReflectFromPtr, ReflectRef, TypeRegistryArc};
+use bevy_ecs_dynamic::reflect_value_ref::{ReflectValueRef, ReflectValueRefQuery};
+use bevy_reflect::ReflectRef;
 use deno_core::{
     error::AnyError, include_js_files, op, serde_v8, v8, Extension, OpState, ResourceId,
 };
@@ -141,64 +141,24 @@ fn op_world_query(
     rid: ResourceId,
     descriptor: QueryDescriptor,
 ) -> Result<Vec<JsQueryItem>, AnyError> {
-    use crate::dynamic_query::{DynamicQuery, FetchKind};
     let world = state.resource_table.get::<WorldResource>(rid)?;
-    let mut world = world.world.borrow_mut();
+    let world = world.world.borrow_mut();
 
     let components: Vec<ComponentId> = descriptor
         .components
         .iter()
         .map(ComponentId::from)
         .collect();
-    let reflect_from_ptrs: Vec<ReflectFromPtr> = {
-        let type_registry = world.resource::<TypeRegistryArc>();
-        let type_registry = type_registry.read();
 
-        components
-            .iter()
-            .map(|&id| {
-                let info = world.components().get_info(id).ok_or_else(|| {
-                    anyhow::anyhow!("component id {id:?} does not exist in this world")
-                })?;
-                let type_id = info
-                    .type_id()
-                    .ok_or_else(|| anyhow::anyhow!("component `{}` has no type id", info.name()))?;
+    let mut query = ReflectValueRefQuery::new(&world, &components);
 
-                let reflect_from_ptr = type_registry
-                    .get_type_data::<ReflectFromPtr>(type_id)
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "component `{}` has no `ReflectFromPtr` registration",
-                            info.name()
-                        )
-                    })?
-                    .clone();
-
-                Ok(reflect_from_ptr)
-            })
-            .collect::<Result<_, AnyError>>()?
-    };
-
-    let fetches = components.iter().map(|&id| FetchKind::RefMut(id)).collect();
-
-    let mut query = DynamicQuery::new(&world, fetches, vec![]);
     let results = query
-        .iter_mut(&mut world)
+        .iter(&world)
         .map(|item| {
             let components = item
                 .items
-                .iter()
-                .zip(components.iter().copied())
-                .zip(reflect_from_ptrs.iter().cloned())
-                .map(|((_result, component_id), reflect_from_ptr)| {
-                    let base = WorldBase::Component(item.entity, component_id);
-                    let value_ref = ValueRef {
-                        base,
-                        reflect_from_ptr,
-                        path: String::new(),
-                    };
-                    unsafe { create_value_ref_object(scope, value_ref) }
-                })
+                .into_iter()
+                .map(|value| unsafe { create_value_ref_object(scope, value) })
                 .collect();
 
             JsQueryItem {
@@ -211,81 +171,20 @@ fn op_world_query(
     Ok(results)
 }
 
-#[derive(Clone, Copy)]
-enum WorldBase {
-    Component(Entity, ComponentId),
-    //Resource(ComponentId),
-}
-
-impl WorldBase {
-    fn access<'w>(self, world: &'w mut World) -> Option<Ptr<'w>> {
-        match self {
-            WorldBase::Component(entity, component_id) => world.get_by_id(entity, component_id),
-            //WorldBase::Resource(component_id) => world.get_resource_by_id(component_id),
-        }
-    }
-}
-
 type ValueRefObject<'a> = serde_v8::Value<'a>;
 
-struct ValueRef {
-    base: WorldBase,
-    reflect_from_ptr: ReflectFromPtr,
-    path: String,
-}
+unsafe fn reflect_value_ref_from_value<'a>(
+    scope: &mut v8::HandleScope,
+    value: ValueRefObject<'a>,
+) -> &'a ReflectValueRef {
+    let value: v8::Local<v8::Value> = value.into();
+    let value = value.to_object(scope).unwrap();
+    let external = value.get_internal_field(scope, 0).unwrap();
+    assert!(external.is_external());
+    let external = v8::Local::<v8::External>::cast(external);
+    let value = &*external.value().cast::<ReflectValueRef>();
 
-impl ValueRef {
-    unsafe fn get<'a>(&self, world: &'a mut World) -> Result<&'a dyn Reflect, AnyError> {
-        let ptr = self
-            .base
-            .access(world)
-            .ok_or_else(|| anyhow::anyhow!("could not access value reference"))?;
-        let base = self.reflect_from_ptr.as_reflect_ptr(ptr);
-
-        let reflect = base
-            .path(&self.path)
-            .map_err(|e| anyhow::anyhow!("failed to access path `{}`: {e}", self.path))?;
-
-        Ok(reflect)
-    }
-
-    unsafe fn get_mut<'a>(&self, world: &'a mut World) -> Result<&'a mut dyn Reflect, AnyError> {
-        let ptr = self
-            .base
-            .access(world)
-            .ok_or_else(|| anyhow::anyhow!("could not access value reference"))?
-            .assert_unique();
-        let base = self.reflect_from_ptr.as_reflect_ptr_mut(ptr);
-
-        let reflect = base
-            .path_mut(&self.path)
-            .map_err(|e| anyhow::anyhow!("failed to access path `{}`: {e}", self.path))?;
-
-        Ok(reflect)
-    }
-
-    fn append_path(&self, path: &str) -> Self {
-        let value = ValueRef {
-            base: self.base,
-            reflect_from_ptr: self.reflect_from_ptr.clone(),
-            path: format!("{}{}", self.path, path),
-        };
-        value
-    }
-
-    unsafe fn from_value<'a>(
-        scope: &mut v8::HandleScope,
-        value: ValueRefObject<'a>,
-    ) -> &'a ValueRef {
-        let value: v8::Local<v8::Value> = value.into();
-        let value = value.to_object(scope).unwrap();
-        let external = value.get_internal_field(scope, 0).unwrap();
-        assert!(external.is_external());
-        let external = v8::Local::<v8::External>::cast(external);
-        let value = &*external.value().cast::<ValueRef>();
-
-        value
-    }
+    value
 }
 
 macro_rules! try_downcast_leaf_get {
@@ -308,9 +207,9 @@ fn op_value_ref_get(
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
     let mut world = world.world.borrow_mut();
 
-    let value_ref = unsafe { ValueRef::from_value(scope, value) };
+    let value_ref = unsafe { reflect_value_ref_from_value(scope, value) };
     let value_ref = value_ref.append_path(&path);
-    let value = unsafe { value_ref.get(&mut world)? };
+    let value = value_ref.get(&mut world)?;
     try_downcast_leaf_get!(value with scope for
         u8, u16, u32, u64, u128, usize,
         i8, i16, i32, i64, i128, isize,
@@ -343,8 +242,8 @@ fn op_value_ref_set(
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
     let mut world = world.world.borrow_mut();
 
-    let value = unsafe { ValueRef::from_value(scope, value).append_path(&path) };
-    let value = unsafe { value.get_mut(&mut world)? };
+    let value = unsafe { reflect_value_ref_from_value(scope, value).append_path(&path) };
+    let value = value.get_mut(&mut world)?;
 
     try_downcast_leaf_set!(value <- new_value with scope for
         u8, u16, u32, u64, u128, usize,
@@ -368,8 +267,8 @@ fn op_value_ref_keys(
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
     let mut world = world.world.borrow_mut();
 
-    let value = unsafe { ValueRef::from_value(scope, value) };
-    let reflect = unsafe { value.get(&mut world) }.unwrap();
+    let value = unsafe { reflect_value_ref_from_value(scope, value) };
+    let reflect = value.get(&mut world)?;
 
     let fields = match reflect.reflect_ref() {
         ReflectRef::Struct(s) => (0..s.field_len())
@@ -400,15 +299,15 @@ fn op_value_ref_to_string(
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
     let mut world = world.world.borrow_mut();
 
-    let value = unsafe { ValueRef::from_value(scope, value) };
-    let reflect = unsafe { value.get(&mut world) }.unwrap();
+    let value = unsafe { reflect_value_ref_from_value(scope, value) };
+    let reflect = value.get(&mut world)?;
 
     Ok(format!("{reflect:?}"))
 }
 
 unsafe fn create_value_ref_object(
     scope: &mut v8::HandleScope,
-    value_ref: ValueRef,
+    value_ref: ReflectValueRef,
 ) -> ValueRefObject<'static> {
     let object = create_object_with_dropped_internal(scope, value_ref);
     let object: v8::Local<v8::Value> = object.into();
