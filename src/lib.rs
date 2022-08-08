@@ -1,3 +1,5 @@
+#![allow(clippy::let_and_return)] // This improves readability sometimes
+
 mod asset;
 mod runtime;
 #[cfg(feature = "typescript")]

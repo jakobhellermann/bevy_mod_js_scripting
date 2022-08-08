@@ -205,11 +205,11 @@ fn op_value_ref_get(
     path: String,
 ) -> Result<serde_v8::Value<'static>, AnyError> {
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
-    let mut world = world.world.borrow_mut();
+    let world = world.world.borrow_mut();
 
     let value_ref = unsafe { reflect_value_ref_from_value(scope, value) };
     let value_ref = value_ref.append_path(&path);
-    let value = value_ref.get(&mut world)?;
+    let value = value_ref.get(&world)?;
     try_downcast_leaf_get!(value with scope for
         u8, u16, u32, u64, u128, usize,
         i8, i16, i32, i64, i128, isize,
@@ -265,10 +265,10 @@ fn op_value_ref_keys(
     value: serde_v8::Value<'_>,
 ) -> Result<Vec<String>, AnyError> {
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
-    let mut world = world.world.borrow_mut();
+    let world = world.world.borrow_mut();
 
     let value = unsafe { reflect_value_ref_from_value(scope, value) };
-    let reflect = value.get(&mut world)?;
+    let reflect = value.get(&world)?;
 
     let fields = match reflect.reflect_ref() {
         ReflectRef::Struct(s) => (0..s.field_len())
@@ -297,10 +297,10 @@ fn op_value_ref_to_string(
     value: serde_v8::Value<'_>,
 ) -> Result<String, AnyError> {
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
-    let mut world = world.world.borrow_mut();
+    let world = world.world.borrow_mut();
 
     let value = unsafe { reflect_value_ref_from_value(scope, value) };
-    let reflect = value.get(&mut world)?;
+    let reflect = value.get(&world)?;
 
     Ok(format!("{reflect:?}"))
 }
