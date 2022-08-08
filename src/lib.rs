@@ -1,5 +1,4 @@
 mod asset;
-mod dynamic_query;
 mod runtime;
 #[cfg(feature = "typescript")]
 mod ts_to_js;
