@@ -20,16 +20,7 @@ impl AssetLoader for JsScriptLoader {
         Box::pin(async move {
             let source = String::from_utf8(bytes.to_vec())?;
 
-            #[cfg(feature = "typescript")]
-            let source = if load_context
-                .path()
-                .extension()
-                .map_or(false, |ext| ext == "ts")
-            {
-                crate::ts_to_js::ts_to_js(load_context.path(), source)?
-            } else {
-                source
-            };
+            let source = crate::transpile::transpile(load_context.path(), &source)?;
 
             load_context.set_default_asset(LoadedAsset::new(JsScript {
                 source,
@@ -40,10 +31,6 @@ impl AssetLoader for JsScriptLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        #[cfg(feature = "typescript")]
-        let exts = &["js", "ts"];
-        #[cfg(not(feature = "typescript"))]
-        let exts = &["js", "ts"];
-        exts
+        &["js", "ts"]
     }
 }

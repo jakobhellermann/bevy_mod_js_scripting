@@ -35,6 +35,6 @@ fn op_log(state: &mut OpState, kind: String, text: serde_json::Value) -> Result<
 pub fn extension() -> Extension {
     Extension::builder()
         .ops(vec![op_log::decl()])
-        .js(include_js_files!(prefix "bevy", "js/log.js",))
+        .js(include_js_files!(prefix "bevy", "../js/log.js",))
         .build()
 }

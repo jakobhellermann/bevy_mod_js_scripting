@@ -3,25 +3,36 @@ name = "bevy_mod_js_scripting"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = ["typescript"]
-typescript = [
-  "deno_ast"
-]
-
 [dependencies]
 anyhow = "1.0.57"
 bevy = { version = "0.8.0", default-features = false, features = ["bevy_asset"] }
 bevy_reflect = "0.8.0-dev"
 fixedbitset = "0.4"
 
-deno_core = "0.146.0"
-deno_ast = { version = "0.17.0", features = ["transpiling"], optional = true }
 serde = "1.0"
 serde_json = "1.0"
 
 bevy_ecs_dynamic = { git = "https://github.com/jakobhellermann/bevy_ecs_dynamic" }
 bevy_reflect_fns = { git = "https://github.com/jakobhellermann/bevy_reflect_fns" }
+
+swc_common = { version = "0.27.4" }
+swc_ecma_codegen = { version = "0.121.2" }
+swc_ecma_parser = { version = "0.117.2" }
+swc_ecma_transforms_base = { version = "0.103.4" }
+swc_ecma_transforms_typescript = { version = "0.145.1" }
+swc_ecma_visit = { version = "0.76.3" }
+swc_atoms = { version = "0.4.3" }
+
+[profile.dev]
+opt-level = 1
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+deno_core = "0.146.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm_mutex = "0.1.4"
+js-sys = "0.3.59"
+wasm-bindgen = { version = "0.2.82", features = ["enable-interning"] }
 
 [dev-dependencies]
 bevy = { version = "0.8.0", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }
