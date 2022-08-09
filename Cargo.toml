@@ -21,6 +21,7 @@ serde = "1.0"
 serde_json = "1.0"
 
 bevy_ecs_dynamic = { git = "https://github.com/jakobhellermann/bevy_ecs_dynamic" }
+bevy_reflect_fns = { git = "https://github.com/jakobhellermann/bevy_reflect_fns" }
 
 [dev-dependencies]
 bevy = { version = "0.8.0", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }

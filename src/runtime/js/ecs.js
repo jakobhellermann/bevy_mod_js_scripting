@@ -45,23 +45,31 @@
     function wrapValueRef(valueRef) {
         // leaf primitives
         if (typeof valueRef !== "object") { return valueRef };
-        const proxy = new Proxy(valueRef, {
+        let target = () => { };
+        target.valueRef = valueRef;
+        const proxy = new Proxy(target, {
             ownKeys: (target) => {
-                return Deno.core.opSync("op_value_ref_keys", world.rid, target);
+                return [...Deno.core.opSync("op_value_ref_keys", world.rid, target.valueRef), VALUE_REF_GET_INNER];
             },
             get: (target, p, receiver) => {
                 switch (p) {
                     case VALUE_REF_GET_INNER:
                         return target;
                     case "toString":
-                        return () => Deno.core.opSync("op_value_ref_to_string", world.rid, target);
+                        return () => Deno.core.opSync("op_value_ref_to_string", world.rid, target.valueRef);
                     default:
-                        let valueRef = Deno.core.opSync("op_value_ref_get", world.rid, target, "." + p);
+                        let valueRef = Deno.core.opSync("op_value_ref_get", world.rid, target.valueRef, "." + p);
                         return wrapValueRef(valueRef);
                 }
             },
             set: (target, p, value) => {
-                Deno.core.opSync("op_value_ref_set", world.rid, target, "." + p, value);
+                Deno.core.opSync("op_value_ref_set", world.rid, target.valueRef, "." + p, value);
+            },
+            apply: (target, thisArg, args) => {
+                return Deno.core.opSync("op_value_ref_call", world.rid, target.valueRef, args.map(arg => {
+                    let valueRef = arg[VALUE_REF_GET_INNER]?.valueRef;
+                    return (valueRef !== undefined) ? valueRef : arg;
+                }));
             }
         });
         return proxy;

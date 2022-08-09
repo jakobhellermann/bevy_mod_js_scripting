@@ -7,6 +7,8 @@ use bevy::{
     asset::{AssetPlugin, AssetServerSettings},
 };
 use bevy_mod_js_scripting::{AddJsSystem, JsScriptingPlugin};
+use bevy_reflect::TypeRegistryArc;
+use bevy_reflect_fns::ReflectMethods;
 
 fn main() {
     App::new()
@@ -39,17 +41,37 @@ struct TestResource {
 #[derive(Component)]
 struct Marker;
 
-fn setup(mut commands: Commands) {
-    commands.spawn_bundle((TestComponent {
-        value: "component 1".into(),
-        number: 28,
-    },));
+fn setup(mut commands: Commands, type_registry: ResMut<TypeRegistryArc>) {
+    let mut type_registry = type_registry.write();
+    type_registry.register::<Transform>();
+    type_registry
+        .get_mut(std::any::TypeId::of::<Vec3>())
+        .unwrap()
+        .insert(ReflectMethods::from_methods([
+            (
+                "normalize",
+                bevy_reflect_fns::reflect_function!(Vec3::normalize: (Vec3)),
+            ),
+            (
+                "lerp",
+                bevy_reflect_fns::reflect_function!(Vec3::lerp: (Vec3, Vec3, f32)),
+            ),
+        ]));
+
+    commands.spawn_bundle((
+        TestComponent {
+            value: "component 1".into(),
+            number: 28,
+        },
+        Transform::from_xyz(1.0, 0.0, 0.0),
+    ));
     commands.spawn_bundle((
         TestComponent {
             value: "component 2".into(),
             number: 79,
         },
         Marker,
+        Transform::from_xyz(12.0, 4.0, 3.0),
     ));
 
     commands.insert_resource(TestResource {
