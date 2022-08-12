@@ -66,10 +66,11 @@
                 Deno.core.opSync("op_value_ref_set", world.rid, target.valueRef, "." + p, value);
             },
             apply: (target, thisArg, args) => {
-                return Deno.core.opSync("op_value_ref_call", world.rid, target.valueRef, args.map(arg => {
+                let ret = Deno.core.opSync("op_value_ref_call", world.rid, target.valueRef, args.map(arg => {
                     let valueRef = arg[VALUE_REF_GET_INNER]?.valueRef;
                     return (valueRef !== undefined) ? valueRef : arg;
                 }));
+                return wrapValueRef(ret);
             }
         });
         return proxy;

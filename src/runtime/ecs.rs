@@ -1,4 +1,4 @@
-use std::{any::TypeId, mem::ManuallyDrop};
+use std::{any::TypeId, cell::RefCell, mem::ManuallyDrop, rc::Rc};
 
 use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
@@ -282,7 +282,7 @@ fn op_value_ref_call(
     world_rid: ResourceId,
     value: serde_v8::Value<'_>,
     args: serde_v8::Value<'_>,
-) -> Result<String, AnyError> {
+) -> Result<ValueRefObject<'static>, AnyError> {
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
     let world = world.world.borrow();
 
@@ -360,8 +360,10 @@ fn op_value_ref_call(
         .collect();
 
     let ret = method.call(args.as_mut_slice())?;
+    let ret = Rc::new(RefCell::new(ret));
+    let ret = ReflectValueRef::free(ret);
 
-    Ok(format!("{ret:?}"))
+    Ok(unsafe { create_value_ref_object(scope, ret.into()) })
 }
 
 #[op(v8)]
