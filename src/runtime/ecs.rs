@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     utils::HashSet,
 };
-use bevy_ecs_dynamic::reflect_value_ref::{ReflectValueRef, ReflectValueRefQuery};
+use bevy_ecs_dynamic::reflect_value_ref::{query::EcsValueRefQuery, ReflectValueRef};
 use bevy_reflect::ReflectRef;
 use deno_core::{
     error::AnyError, include_js_files, op, serde_v8, v8, Extension, OpState, ResourceId,
@@ -150,7 +150,7 @@ fn op_world_query(
         .map(ComponentId::from)
         .collect();
 
-    let mut query = ReflectValueRefQuery::new(&world, &components);
+    let mut query = EcsValueRefQuery::new(&world, &components);
 
     let results = query
         .iter(&world)
@@ -158,7 +158,9 @@ fn op_world_query(
             let components = item
                 .items
                 .into_iter()
-                .map(|value| unsafe { create_value_ref_object(scope, value) })
+                .map(|value| unsafe {
+                    create_value_ref_object(scope, ReflectValueRef::ecs_ref(value))
+                })
                 .collect();
 
             JsQueryItem {
@@ -208,7 +210,7 @@ fn op_value_ref_get(
     let world = world.world.borrow_mut();
 
     let value_ref = unsafe { reflect_value_ref_from_value(scope, value) };
-    let value_ref = value_ref.append_path(&path);
+    let value_ref = value_ref.append_path(&path, &world)?;
     let value = value_ref.get(&world)?;
     try_downcast_leaf_get!(value with scope for
         u8, u16, u32, u64, u128, usize,
@@ -216,7 +218,7 @@ fn op_value_ref_get(
         String, char, bool, f32, f64
     );
 
-    let object = unsafe { create_value_ref_object(scope, value_ref) };
+    let object = unsafe { create_value_ref_object(scope, value_ref.clone()) };
 
     Ok(object)
 }
@@ -242,8 +244,8 @@ fn op_value_ref_set(
     let world = state.resource_table.get::<WorldResource>(world_rid)?;
     let mut world = world.world.borrow_mut();
 
-    let value = unsafe { reflect_value_ref_from_value(scope, value).append_path(&path) };
-    let value = value.get_mut(&mut world)?;
+    let mut value = unsafe { reflect_value_ref_from_value(scope, value).append_path(&path, &world)? };
+    let mut value = value.get_mut(&mut world)?;
 
     try_downcast_leaf_set!(value <- new_value with scope for
         u8, u16, u32, u64, u128, usize,
