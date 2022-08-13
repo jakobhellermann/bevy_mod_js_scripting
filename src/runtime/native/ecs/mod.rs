@@ -25,6 +25,6 @@ pub fn extension() -> Extension {
             call::op_value_ref_call::decl(),
             resource::op_world_get_resource::decl(),
         ])
-        .js(include_js_files!(prefix "bevy", "../js/ecs.js",))
+        .js(include_js_files!(prefix "bevy", "../../js/ecs.js",))
         .build()
 }

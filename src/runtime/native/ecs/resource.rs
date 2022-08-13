@@ -1,7 +1,7 @@
 use bevy_ecs_dynamic::reflect_value_ref::EcsValueRef;
 use deno_core::{error::AnyError, op, v8, OpState, ResourceId};
 
-use crate::runtime::WorldResource;
+use crate::runtime::native::WorldResource;
 
 use super::{
     types::ComponentIdOrBevyType,
