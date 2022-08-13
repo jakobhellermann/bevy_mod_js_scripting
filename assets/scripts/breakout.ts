@@ -8,19 +8,23 @@ function filterComponentInfos(infos: ComponentInfo[], prefix: string): string[] 
 
 let firstIteration = true;
 let i = 0;
+
+type Scoreboard = {
+    score: number;
+};
+const Scoreboard: BevyType<Scoreboard> = { typeName: "breakout::Scoreboard" };
+
 function run() {
-    if (firstIteration) {
-        firstIteration = false;
-
-        // info("Components: " + filterComponentInfos(world.components, "bevy_transform::"));
-        // info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
-    }
-
-
     i++;
     if (i % 60 == 0) {
-        let timeId = world.resources.find(info => info.name == "bevy_time::time::Time").id;
-        let time = world.resource(timeId);
-        info(time.delta_seconds.toString());
+        let time = world.resource(Scoreboard);
+        time.score += 1;
+        info(time.score);
+    }
+
+    if (firstIteration) {
+        firstIteration = false;
+        // info("Components: " + filterComponentInfos(world.components, "bevy_transform::"));
+        // info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
     }
 }

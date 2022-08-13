@@ -1,10 +1,43 @@
 use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
-    prelude::Entity,
+    prelude::{Entity, World},
 };
+use bevy_reflect::TypeRegistryArc;
+use deno_core::error::AnyError;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum ComponentIdOrBevyType {
+    ComponentId(JsComponentId),
+    Type {
+        #[serde(rename = "typeName")]
+        type_name: String,
+    },
+}
+
+impl ComponentIdOrBevyType {
+    pub fn component_id(self, world: &World) -> Result<ComponentId, AnyError> {
+        match self {
+            ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(&id)),
+            ComponentIdOrBevyType::Type { type_name } => {
+                let type_registry = world.resource::<TypeRegistryArc>().read();
+                let registration = type_registry.get_with_name(&type_name).ok_or_else(|| {
+                    anyhow::anyhow!("`{type_name}` does not exist in the type registry")
+                })?;
+                let type_id = registration.type_id();
+                let component_id = world
+                    .components()
+                    .get_id(type_id)
+                    .or_else(|| world.components().get_resource_id(type_id))
+                    .ok_or_else(|| anyhow::anyhow!("`{type_name}` is not a component"))?;
+                Ok(component_id)
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct JsComponentId {
     pub index: usize,
 }

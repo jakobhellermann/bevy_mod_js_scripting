@@ -41,12 +41,17 @@ interface Value {
     [path: string | number]: Value | Primitive | undefined,
 }
 
+type BevyType<T> = {
+    typeName: string;
+};
+
 declare class World {
     get components(): ComponentInfo[];
     get resources(): ComponentInfo[];
     get entities(): Entity[];
 
     resource(componentId: ComponentId): Value | null;
+    resource<T>(type: BevyType<T>): T | null;
 
     query(descriptor: QueryDescriptor): QueryItem[];
 }

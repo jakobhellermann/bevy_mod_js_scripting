@@ -80,6 +80,7 @@ fn main() {
         .register_type::<Collider>()
         .register_type::<Brick>()
         .register_type::<Time>()
+        .register_type::<Scoreboard>()
         .run();
 }
 
@@ -175,6 +176,7 @@ impl WallBundle {
 }
 
 // This resource tracks the game's score
+#[derive(Reflect)]
 struct Scoreboard {
     score: usize,
 }
