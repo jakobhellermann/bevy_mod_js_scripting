@@ -2886,9 +2886,9 @@ checksum = "8fb1df15f412ee2e9dfc1c504260fa695c1c3f10fe9f4a6ee2d2184d7d6450e2"
 
 [[package]]
 name = "swc_atoms"
-version = "0.4.3"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad737d86a4e6c107c3280919fa94eac6a964cb159349573e637f65a844cf2b31"
+checksum = "013b8129d72b54f337bc3733a075389d97a5714fb58d3ead5df49977a45322fc"
 dependencies = [
  "once_cell",
  "rustc-hash",
@@ -2899,9 +2899,9 @@ dependencies = [
 
 [[package]]
 name = "swc_common"
-version = "0.27.4"
+version = "0.27.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0be8e7a82adcbe80f508d86a48377c2e822eab5aafcd58d0e1beebb00cd04821"
+checksum = "2659e2466667506a9c6994062344f8ee10ae8d48a4bd3a43e974c8945c0ae2bb"
 dependencies = [
  "ahash",
  "ast_node",
@@ -2952,9 +2952,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_ast"
-version = "0.90.5"
+version = "0.90.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e115e968e0d65181c8f6146dbbda48526ede618df0b307c66ebfd92b14f4651"
+checksum = "8265c7abbdf36fa17da7c276bf6dd933b0837e00655dc7452b7b23068e7de688"
 dependencies = [
  "bitflags",
  "is-macro",
@@ -2969,9 +2969,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_codegen"
-version = "0.121.2"
+version = "0.121.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69cdc4e70b9527b03c7e007b4546b0ab9868d513c914b6d5613f8bd421a3ec16"
+checksum = "54c1e454253d4cda2d9e600256d5511d33d163361ef8b6165343505c48328f2b"
 dependencies = [
  "memchr",
  "num-bigint",
@@ -3001,9 +3001,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_parser"
-version = "0.117.2"
+version = "0.117.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a280a7995bc18a2db3bf4e357a304e51bcca3f854d1dfc2bf3ba545b4867830"
+checksum = "b8a8ef64367f4f84c49599c94426254fcc2a4bfbc446c422b6208ee685f72f1b"
 dependencies = [
  "either",
  "enum_kind",
@@ -3020,9 +3020,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_transforms_base"
-version = "0.103.4"
+version = "0.103.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bc980de8873bc099608960751404c59fe1a232cfd20b4a7ad948c00bb0a9c1c"
+checksum = "fdd22a6ac5bd2baa8f171a07a9c41e5d8e599c854769099817be46aef0e2c2e2"
 dependencies = [
  "better_scoped_tls",
  "bitflags",
@@ -3056,9 +3056,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_transforms_react"
-version = "0.141.1"
+version = "0.141.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd0078797ebe98d030f764302b9f59240fd0d942dcc68e96259e6ecaf1fa53a7"
+checksum = "947cdceaf6f0108d6253d02848436131061f16861df417e81b44c227285d952c"
 dependencies = [
  "ahash",
  "base64 0.13.0",
@@ -3082,9 +3082,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_transforms_typescript"
-version = "0.145.1"
+version = "0.145.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f181de071cd56d42f003f836f5844a7ad9d8d4929e62d9402cd3e927c5a8de98"
+checksum = "3f61975f11d397454db9f5046c3224813c95804e5684933c5cbf6324a4d9ff5c"
 dependencies = [
  "serde",
  "swc_atoms",
@@ -3098,9 +3098,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_utils"
-version = "0.99.2"
+version = "0.99.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18edca9b06e35b1f67d98f3ca0b749a3a213bd2f8bd5d1b1af8986f8d4923eb5"
+checksum = "6494149979ae31a79d8a423c5da4aae9ac8ff0195d9e0135ccf569bc1a1d0d3f"
 dependencies = [
  "indexmap",
  "once_cell",
@@ -3114,9 +3114,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_visit"
-version = "0.76.3"
+version = "0.76.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fa4edc0fd3fe80dbc64daa61209c5652554c938e61c66c96cc93e8488b85503"
+checksum = "d998049fbf890e6674c7c818683b3eed53d993aac7156970b03b343659aeef75"
 dependencies = [
  "num-bigint",
  "swc_atoms",
@@ -3571,7 +3571,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "raw-window-handle",
  "smallvec",
  "wasm-bindgen",
@@ -3597,7 +3597,7 @@ dependencies = [
  "fxhash",
  "log",
  "naga",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -3634,7 +3634,7 @@ dependencies = [
  "metal",
  "naga",
  "objc",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "profiling",
  "range-alloc",
  "raw-window-handle",

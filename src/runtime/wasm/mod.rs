@@ -36,9 +36,6 @@ extern "C" {
 
     #[wasm_bindgen(method, catch)]
     fn update(this: &ScriptObject) -> Result<(), JsValue>;
-
-    #[wasm_bindgen(method, catch)]
-    fn update(this: &ScriptObject) -> Result<(), JsValue>;
 }
 
 pub struct JsRuntime {

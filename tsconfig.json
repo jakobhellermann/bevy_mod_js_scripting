@@ -8,6 +8,6 @@
     },
     "include": [
         "./assets/**/*",
-        "./tslib"
-, "lib.bevy.d.ts"    ],
+        "./lib.bevy.d.ts"
+    ],
 }
