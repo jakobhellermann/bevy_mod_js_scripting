@@ -317,7 +317,7 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_dynamic"
 version = "0.1.0"
-source = "git+https://github.com/jakobhellermann/bevy_ecs_dynamic#6d723bc0ecc2c04de232a692b89114283cd6a636"
+source = "git+https://github.com/jakobhellermann/bevy_ecs_dynamic#76d6260462ca319d27c046d943714b7ae1885348"
 dependencies = [
  "bevy_ecs",
  "bevy_reflect",
@@ -3670,7 +3670,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot 0.12.1",
+ "parking_lot 0.11.2",
  "raw-window-handle",
  "smallvec",
  "wasm-bindgen",
@@ -3696,7 +3696,7 @@ dependencies = [
  "fxhash",
  "log",
  "naga",
- "parking_lot 0.12.1",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -3733,7 +3733,7 @@ dependencies = [
  "metal",
  "naga",
  "objc",
- "parking_lot 0.12.1",
+ "parking_lot 0.11.2",
  "profiling",
  "range-alloc",
  "raw-window-handle",

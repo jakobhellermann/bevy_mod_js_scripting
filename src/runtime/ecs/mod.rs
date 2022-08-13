@@ -7,6 +7,7 @@ mod v8_utils;
 mod call;
 mod info;
 mod query;
+mod resource;
 mod value;
 
 pub fn extension() -> Extension {
@@ -22,6 +23,7 @@ pub fn extension() -> Extension {
             value::op_value_ref_get::decl(),
             value::op_value_ref_set::decl(),
             call::op_value_ref_call::decl(),
+            resource::op_world_get_resource::decl(),
         ])
         .js(include_js_files!(prefix "bevy", "../js/ecs.js",))
         .build()

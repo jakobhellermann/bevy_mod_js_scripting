@@ -31,6 +31,11 @@
             return Deno.core.opSync("op_world_entities", this.rid);
         }
 
+        resource(componentId) {
+            let resource = Deno.core.opSync("op_world_get_resource", this.rid, componentId);
+            return resource != null ? wrapValueRef(resource) : null;
+        }
+
         query(descriptor) {
             return Deno.core.opSync("op_world_query", this.rid, descriptor)
                 .map(({ entity, components }) => ({

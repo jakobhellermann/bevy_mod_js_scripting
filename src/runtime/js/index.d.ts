@@ -46,6 +46,8 @@ declare class World {
     get resources(): ComponentInfo[];
     get entities(): Entity[];
 
+    resource(componentId: ComponentId): Value | null;
+
     query(descriptor: QueryDescriptor): QueryItem[];
 }
 

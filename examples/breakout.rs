@@ -73,12 +73,13 @@ fn main() {
         )
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
-        .add_js_system("scripts/debug.ts")
+        .add_js_system("scripts/breakout.ts")
         .register_type::<Ball>()
         .register_type::<Paddle>()
         .register_type::<Velocity>()
         .register_type::<Collider>()
         .register_type::<Brick>()
+        .register_type::<Time>()
         .run();
 }
 
