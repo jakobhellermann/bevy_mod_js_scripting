@@ -555,7 +555,7 @@ dependencies = [
 [[package]]
 name = "bevy_reflect_fns"
 version = "0.1.0"
-source = "git+https://github.com/jakobhellermann/bevy_reflect_fns#cc21a466d62b533f77b74b27cf2143a8661c0322"
+source = "git+https://github.com/jakobhellermann/bevy_reflect_fns#544176458662457720d810dd4cec617466a29f60"
 dependencies = [
  "bevy_reflect",
  "thiserror",

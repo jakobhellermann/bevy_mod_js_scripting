@@ -50,11 +50,11 @@ fn setup(mut commands: Commands, type_registry: ResMut<TypeRegistryArc>) {
         .insert(ReflectMethods::from_methods([
             (
                 "normalize",
-                bevy_reflect_fns::reflect_function!(Vec3::normalize: (Vec3)),
+                bevy_reflect_fns::reflect_function!(Vec3::normalize, (Vec3)),
             ),
             (
                 "lerp",
-                bevy_reflect_fns::reflect_function!(Vec3::lerp: (Vec3, Vec3, f32)),
+                bevy_reflect_fns::reflect_function!(Vec3::lerp, (Vec3, Vec3, f32)),
             ),
         ]));
 
