@@ -1,9 +1,11 @@
-"use_strict";
-
-((window) => {
-    function bevyModJsScriptingOpSync(...args) {
-        console.log("bevyModJsScriptingOpSync", args);
-    }
-
+export function setup_js_globals(bevyModJsScripting) {
+    window.bevyModJsScripting = bevyModJsScripting;
     window.bevyModJsScriptingOpSync = bevyModJsScriptingOpSync;
-})(globalThis);
+}
+
+function bevyModJsScriptingOpSync(op_name, ...args) {
+    switch (op_name) {
+        case "op_log":
+            window.bevyModJsScripting.op_log(args[0], JSON.stringify(args[1]));
+    }
+}
