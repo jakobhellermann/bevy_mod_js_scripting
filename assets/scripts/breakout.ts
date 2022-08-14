@@ -18,14 +18,12 @@ const Scoreboard: BevyType<Scoreboard> = { typeName: "breakout::Scoreboard" };
 export default {
   update() {
     i++;
-    if (i % 60 == 0) {
-      let scoreboard = world.resource(Scoreboard);
-      scoreboard.score += 1;
-      info(scoreboard.score);
-    }
 
     if (firstIteration) {
       firstIteration = false;
+      for (const entity of world.entities) {
+        info!(entity);
+      }
       // info("Components: " + filterComponentInfos(world.components, "bevy_transform::"));
       // info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
     }

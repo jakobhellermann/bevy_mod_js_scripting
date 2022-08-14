@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use bevy::utils::HashMap;
+use bevy::ecs::component::ComponentId;
+use bevy::utils::{HashMap, HashSet};
 use bevy::{
     prelude::*,
     utils::tracing::{event, span, Level},
@@ -9,12 +10,16 @@ use bevy::{
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_mutex::Mutex;
 
-use crate::asset::JsScript;
-
 use super::JsRuntimeApi;
+use crate::asset::JsScript;
+use crate::runtime::wasm::types::{JsComponentInfo, JsEntity};
+
+mod types;
 
 const LOCK_SHOULD_NOT_FAIL: &str =
     "Mutex lock should not fail because there should be no concurrent access";
+
+const WORLD_RID: u32 = 0;
 
 #[wasm_bindgen]
 struct BevyModJsScripting {
@@ -24,13 +29,14 @@ struct BevyModJsScripting {
 #[derive(Default)]
 struct JsRuntimeState {
     current_script_path: PathBuf,
+    world: World,
 }
 
 #[wasm_bindgen]
 impl BevyModJsScripting {
     pub fn op_log(&self, level: &str, text: &str) {
-        let data = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let path = &data.current_script_path;
+        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        let path = &state.current_script_path;
 
         let level: Level = level.parse().unwrap_or(Level::INFO);
         if level == Level::TRACE {
@@ -49,6 +55,62 @@ impl BevyModJsScripting {
             let _span = span!(Level::ERROR, "script", ?path).entered();
             event!(target: "js_runtime", Level::ERROR, "{text}");
         }
+    }
+
+    pub fn op_world_tostring(&self, rid: u32) -> String {
+        assert_eq!(rid, WORLD_RID);
+        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        let world = &state.world;
+
+        format!("{world:?}")
+    }
+
+    pub fn op_world_components(&self, rid: u32) -> JsValue {
+        assert_eq!(rid, WORLD_RID);
+        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        let world = &state.world;
+
+        let resource_components: HashSet<ComponentId> =
+            world.archetypes().resource().components().collect();
+
+        let infos = world
+            .components()
+            .iter()
+            .filter(|info| !resource_components.contains(&info.id()))
+            .map(JsComponentInfo::from)
+            .collect::<Vec<_>>();
+
+        serde_wasm_bindgen::to_value(&infos).unwrap()
+    }
+
+    pub fn op_world_resources(&self, rid: u32) -> JsValue {
+        assert_eq!(rid, WORLD_RID);
+        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        let world = &state.world;
+
+        let infos = world
+            .archetypes()
+            .resource()
+            .components()
+            .map(|id| world.components().get_info(id).unwrap())
+            .map(JsComponentInfo::from)
+            .collect::<Vec<_>>();
+
+        serde_wasm_bindgen::to_value(&infos).unwrap()
+    }
+
+    pub fn op_world_entities(&self, rid: u32) -> JsValue {
+        assert_eq!(rid, WORLD_RID);
+        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        let world = &mut state.world;
+
+        let entities = world
+            .query::<Entity>()
+            .iter(world)
+            .map(JsEntity::from)
+            .collect::<Vec<_>>();
+
+        serde_wasm_bindgen::to_value(&entities).unwrap()
     }
 }
 
@@ -145,7 +207,12 @@ impl JsRuntimeApi for JsRuntime {
             .contains_key(handle)
     }
 
-    fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, _world: &mut World) {
+    fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World) {
+        {
+            let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+            std::mem::swap(&mut state.world, world);
+        }
+
         let try_run = || {
             let scripts = self.scripts.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
             let script = scripts
@@ -153,16 +220,16 @@ impl JsRuntimeApi for JsRuntime {
                 .ok_or_else(|| anyhow::format_err!("Script not loaded yet"))?;
             let output = &script.output;
 
+            {
+                let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+                state.current_script_path = script.path.clone();
+            }
+
             let output: &BevyScriptJsObject = output.dyn_ref().ok_or_else(|| {
                 anyhow::format_err!(
                     "Script must export an object with an object with an `update` function."
                 )
             })?;
-
-            {
-                let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-                state.current_script_path = script.path.clone();
-            }
 
             match stage {
                 CoreStage::First => {
@@ -210,5 +277,9 @@ impl JsRuntimeApi for JsRuntime {
             // TODO: add script path to error
             error!("Error running script: {}", e);
         }
+
+        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        state.current_script_path = PathBuf::new();
+        std::mem::swap(&mut state.world, world);
     }
 }
