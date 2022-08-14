@@ -33,7 +33,11 @@
         }
 
         resource(componentId) {
-            let resource = Deno.core.opSync("op_world_get_resource", this.rid, componentId);
+            let resource = bevyModJsScriptingOpSync(
+                "op_world_get_resource",
+                this.rid,
+                componentId
+            );
             return resource != null ? wrapValueRef(resource) : null;
         }
 
@@ -55,13 +59,18 @@
         if (typeof valueRef !== "object") {
             return valueRef;
         }
-        const proxy = new Proxy(valueRef, {
+        let target = () => {};
+        target.valueRef = valueRef;
+        const proxy = new Proxy(target, {
             ownKeys: (target) => {
-                return bevyModJsScriptingOpSync(
-                    "op_value_ref_keys",
-                    world.rid,
-                    target
-                );
+                return [
+                    ...bevyModJsScriptingOpSync(
+                        "op_value_ref_keys",
+                        world.rid,
+                        target.valueRef
+                    ),
+                    VALUE_REF_GET_INNER,
+                ];
             },
             get: (target, p, receiver) => {
                 switch (p) {
@@ -72,13 +81,13 @@
                             bevyModJsScriptingOpSync(
                                 "op_value_ref_to_string",
                                 world.rid,
-                                target
+                                target.valueRef
                             );
                     default:
                         let valueRef = bevyModJsScriptingOpSync(
                             "op_value_ref_get",
                             world.rid,
-                            target,
+                            target.valueRef,
                             "." + p
                         );
                         return wrapValueRef(valueRef);
@@ -88,10 +97,22 @@
                 bevyModJsScriptingOpSync(
                     "op_value_ref_set",
                     world.rid,
-                    target,
+                    target.valueRef,
                     "." + p,
                     value
                 );
+            },
+            apply: (target, thisArg, args) => {
+                let ret = bevyModJsScriptingOpSync(
+                    "op_value_ref_call",
+                    world.rid,
+                    target.valueRef,
+                    args.map((arg) => {
+                        let valueRef = arg[VALUE_REF_GET_INNER]?.valueRef;
+                        return valueRef !== undefined ? valueRef : arg;
+                    })
+                );
+                return wrapValueRef(ret);
             },
         });
         return proxy;
