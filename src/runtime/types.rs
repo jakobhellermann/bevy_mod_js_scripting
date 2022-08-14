@@ -3,7 +3,6 @@ use bevy::{
     prelude::{Entity, World},
 };
 use bevy_reflect::TypeRegistryArc;
-use deno_core::error::AnyError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -17,7 +16,7 @@ pub enum ComponentIdOrBevyType {
 }
 
 impl ComponentIdOrBevyType {
-    pub fn component_id(self, world: &World) -> Result<ComponentId, AnyError> {
+    pub fn component_id(self, world: &World) -> Result<ComponentId, anyhow::Error> {
         match self {
             ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(&id)),
             ComponentIdOrBevyType::Type { type_name } => {
