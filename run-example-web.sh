@@ -4,7 +4,7 @@
 # This script is usually run by the justfile
 #
 
-example="breakout"
+example="${1-breakout}"
 target=wasm32-unknown-unknown
 target_dir="web-target"
 
@@ -27,6 +27,7 @@ rm -rf $dist_dir
 mkdir -p $dist_dir
 wasm-bindgen --out-dir $dist_dir --target web --no-typescript $target_dir/$target/$build_kind/examples/$example.wasm
 cp wasm_resources/index.html $dist_dir/index.html
+sed -i s/\$example/$example/ $dist_dir/index.html
 cp -r assets $dist_dir
 
 basic-http-server -x $dist_dir
