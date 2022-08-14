@@ -1,7 +1,5 @@
-use super::{
-    types::{JsComponentInfo, JsEntity},
-    WorldResource,
-};
+use super::WorldResource;
+use crate::runtime::types::{JsComponentInfo, JsEntity};
 use bevy::{ecs::component::ComponentId, prelude::*, utils::HashSet};
 use deno_core::{error::AnyError, op, OpState, ResourceId};
 

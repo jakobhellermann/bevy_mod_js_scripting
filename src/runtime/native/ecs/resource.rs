@@ -1,12 +1,9 @@
 use bevy_ecs_dynamic::reflect_value_ref::EcsValueRef;
 use deno_core::{error::AnyError, op, v8, OpState, ResourceId};
 
-use crate::runtime::native::WorldResource;
+use crate::runtime::{native::WorldResource, types::ComponentIdOrBevyType};
 
-use super::{
-    types::ComponentIdOrBevyType,
-    v8_utils::{create_value_ref_object, ValueRefObject},
-};
+use super::v8_utils::{create_value_ref_object, ValueRefObject};
 
 #[op(v8)]
 pub fn op_world_get_resource(

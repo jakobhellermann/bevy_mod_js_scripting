@@ -1,8 +1,8 @@
 use super::{
-    types::{JsComponentId, JsEntity},
     v8_utils::{create_value_ref_object, ValueRefObject},
     WorldResource,
 };
+use crate::runtime::types::{JsComponentId, JsEntity};
 use bevy::ecs::component::ComponentId;
 use bevy_ecs_dynamic::reflect_value_ref::query::EcsValueRefQuery;
 use deno_core::{error::AnyError, op, v8, OpState, ResourceId};

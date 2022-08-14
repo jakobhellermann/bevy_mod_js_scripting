@@ -39,7 +39,9 @@ impl Plugin for JsScriptingPlugin {
                     let runtime = world.remove_non_send_resource::<JsRuntime>().unwrap();
 
                     for script in &*active_scripts {
-                        runtime.run_script(script, stage, world);
+                        if runtime.has_loaded(script) {
+                            runtime.run_script(script, stage, world);
+                        }
                     }
 
                     world.insert_resource(active_scripts);

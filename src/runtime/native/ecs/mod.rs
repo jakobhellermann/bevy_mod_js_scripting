@@ -1,7 +1,6 @@
 use super::WorldResource;
 use deno_core::{include_js_files, Extension};
 
-mod types;
 mod v8_utils;
 
 mod call;

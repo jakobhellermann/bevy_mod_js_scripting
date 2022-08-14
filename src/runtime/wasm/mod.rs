@@ -12,9 +12,7 @@ use wasm_mutex::Mutex;
 
 use super::JsRuntimeApi;
 use crate::asset::JsScript;
-use crate::runtime::wasm::types::{JsComponentInfo, JsEntity};
-
-mod types;
+use crate::runtime::types::{JsComponentInfo, JsEntity};
 
 const LOCK_SHOULD_NOT_FAIL: &str =
     "Mutex lock should not fail because there should be no concurrent access";
@@ -114,36 +112,9 @@ impl BevyModJsScripting {
     }
 }
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_name = "Object")]
-    type BevyScriptJsObject;
-
-    #[wasm_bindgen(method, catch)]
-    fn first(this: &BevyScriptJsObject) -> Result<(), JsValue>;
-    #[wasm_bindgen(method, catch)]
-    fn pre_update(this: &BevyScriptJsObject) -> Result<(), JsValue>;
-    #[wasm_bindgen(method, catch)]
-    fn update(this: &BevyScriptJsObject) -> Result<(), JsValue>;
-    #[wasm_bindgen(method, catch)]
-    fn post_update(this: &BevyScriptJsObject) -> Result<(), JsValue>;
-    #[wasm_bindgen(method, catch)]
-    fn last(this: &BevyScriptJsObject) -> Result<(), JsValue>;
-}
-
 #[wasm_bindgen(module = "/src/runtime/wasm/wasm_setup.js")]
 extern "C" {
     fn setup_js_globals(bevy_mod_js_scripting: BevyModJsScripting);
-}
-
-impl BevyScriptJsObject {
-    fn has_fn(&self, name: &str) -> bool {
-        let name = wasm_bindgen::intern(name);
-
-        self.dyn_ref()
-            .map(|obj: &js_sys::Object| obj.has_own_property(&JsValue::from_str(name)))
-            .unwrap_or_default()
-    }
 }
 
 pub struct JsRuntime {
@@ -225,50 +196,40 @@ impl JsRuntimeApi for JsRuntime {
                 state.current_script_path = script.path.clone();
             }
 
-            let output: &BevyScriptJsObject = output.dyn_ref().ok_or_else(|| {
-                anyhow::format_err!(
-                    "Script must export an object with an object with an `update` function."
-                )
+            let output: &js_sys::Object = output.dyn_ref().ok_or_else(|| {
+                anyhow::format_err!("Script must have a default export that returns an object")
             })?;
 
-            match stage {
-                CoreStage::First => {
-                    if output.has_fn("first") {
-                        output.first()
-                    } else {
-                        Ok(())
-                    }
+            let fn_name = match stage {
+                CoreStage::First => "first",
+                CoreStage::PreUpdate => "pre_update",
+                CoreStage::Update => "update",
+                CoreStage::PostUpdate => "post_update",
+                CoreStage::Last => "last",
+            };
+            let fn_name_str = wasm_bindgen::intern(fn_name);
+            let fn_name = wasm_bindgen::JsValue::from_str(fn_name_str);
+
+            if let Ok(script_fn) = js_sys::Reflect::get(output, &fn_name) {
+                // If a handler isn't specified for this stage, just skip this script
+                if script_fn.is_undefined() {
+                    return Ok(());
                 }
-                CoreStage::PreUpdate => {
-                    if output.has_fn("pre_update") {
-                        output.pre_update()
-                    } else {
-                        Ok(())
+
+                match script_fn.dyn_ref::<js_sys::Function>() {
+                    Some(script_fn) => {
+                        script_fn.call0(output).map_err(|e| {
+                            anyhow::format_err!("Error running script {fn_name_str} handler: {e:?}")
+                        })?;
                     }
-                }
-                CoreStage::Update => {
-                    if output.has_fn("update") {
-                        output.update()
-                    } else {
-                        Ok(())
-                    }
-                }
-                CoreStage::PostUpdate => {
-                    if output.has_fn("post_update") {
-                        output.post_update()
-                    } else {
-                        Ok(())
-                    }
-                }
-                CoreStage::Last => {
-                    if output.has_fn("last") {
-                        output.last()
-                    } else {
-                        Ok(())
+                    None => {
+                        warn!(
+                            "Script exported object with {fn_name_str} field, but it was not a \
+                            function. Ignoring."
+                        );
                     }
                 }
             }
-            .map_err(|e| anyhow::format_err!("Error executing script function: {e:?}"))?;
 
             Ok::<_, anyhow::Error>(())
         };
