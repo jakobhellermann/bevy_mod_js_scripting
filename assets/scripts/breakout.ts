@@ -15,17 +15,21 @@ type Scoreboard = {
 };
 const Scoreboard: BevyType<Scoreboard> = { typeName: "breakout::Scoreboard" };
 
-export default {
-  update() {
-    i++;
+function run() {
+  i++;
+  if (i % 60 == 0) {
+    let score = world.resource(Scoreboard);
+    score.score += 1;
+    info(score.score);
+  }
 
-    if (firstIteration) {
-      firstIteration = false;
-      for (const entity of world.entities) {
-        info!(entity);
-      }
-      // info("Components: " + filterComponentInfos(world.components, "bevy_transform::"));
-      // info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
-    }
-  },
+  if (firstIteration) {
+    firstIteration = false;
+    // info("Components: " + filterComponentInfos(world.components, "bevy_transform::"));
+    // info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
+  }
+}
+
+export default {
+  update: run,
 };

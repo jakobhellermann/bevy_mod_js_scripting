@@ -82,3 +82,8 @@ impl From<Entity> for JsEntity {
         }
     }
 }
+
+#[derive(Deserialize)]
+pub struct QueryDescriptor {
+    pub components: Vec<JsComponentId>,
+}

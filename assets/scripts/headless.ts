@@ -1,28 +1,29 @@
-function filterComponentInfos(
-  infos: ComponentInfo[],
-  prefix: string
-): string[] {
-  return infos
-    .filter((info) => info.name.startsWith(prefix))
-    .map((info) => info.name.replace(prefix, ""));
-}
+let i = 0;
 
-function componentId(name) {
-  let id = world.components.find((info) => info.name === name);
-  if (!id) throw new Error(`component id for ${name} not found`);
-  return id.id;
-}
+type Scoreboard = {
+  score: number;
+  extra: ExtraData;
+};
+type ExtraData = {
+  name: string;
+};
+const Scoreboard: BevyType<Scoreboard> = { typeName: "headless::Scoreboard" };
 
-let firstIteration = true;
+info("Loaded");
 
 export default {
   update() {
-    if (firstIteration) {
-      firstIteration = false;
-
-      for (const entity of world.entities) {
-        info(entity);
-      }
+    if (i == 0) {
+      info(world.resources);
     }
+
+    if (i % 3 == 0) {
+      let score = world.resource(Scoreboard);
+      info(score.toString());
+      info(score.score);
+      info(score.extra.name);
+    }
+
+    i++;
   },
 };

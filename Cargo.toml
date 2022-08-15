@@ -34,6 +34,7 @@ wasm_mutex = "0.1.4"
 js-sys = "0.3.59"
 wasm-bindgen = { version = "0.2.82", features = ["enable-interning"] }
 serde-wasm-bindgen = "0.4.3"
+slab = "0.4.7"
 
 [dev-dependencies]
 bevy = { version = "0.8.0", default-features = false, features = ["render", "bevy_winit", "x11", "filesystem_watcher"] }
