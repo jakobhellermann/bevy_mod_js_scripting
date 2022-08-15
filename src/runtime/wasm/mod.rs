@@ -9,7 +9,7 @@ use bevy::{
 };
 use bevy_ecs_dynamic::reflect_value_ref::query::EcsValueRefQuery;
 use bevy_ecs_dynamic::reflect_value_ref::{EcsValueRef, ReflectValueRef};
-use bevy_reflect::TypeRegistryArc;
+use bevy_reflect::{ReflectRef, TypeRegistryArc};
 use serde::{Deserialize, Serialize};
 use slab::Slab;
 use wasm_bindgen::{prelude::*, JsCast};
@@ -319,7 +319,55 @@ impl BevyModJsScripting {
             String, char, bool, f32, f64
         );
 
-        todo!()
+        Err(JsValue::from_str(&format!(
+            "could not set value reference: type `{}` is not a primitive type",
+            reflect.type_name(),
+        )))
+    }
+
+    pub fn op_value_ref_keys(&self, rid: u32, value_ref: JsValue) -> Result<JsValue, JsValue> {
+        assert_eq!(rid, WORLD_RID);
+        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+        let JsRuntimeState {
+            world,
+            value_refs,
+            generation,
+            ..
+        } = &mut *state;
+
+        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(value_ref)?;
+        let value_ref = if *generation == value_ref.generation {
+            match value_refs.get_mut(value_ref.index) {
+                Some(value_ref) => value_ref,
+                None => return Ok(JsValue::NULL),
+            }
+        } else {
+            return Err(JsValue::from_str(
+                "Attempt to use value ref from previous script execution",
+            ));
+        };
+        let reflect = value_ref.get(world).unwrap();
+
+        let fields = match reflect.reflect_ref() {
+            ReflectRef::Struct(s) => (0..s.field_len())
+                .map(|i| {
+                    let name = s.name_at(i).ok_or_else(|| {
+                        JsValue::from_str(&format!(
+                            "misbehaving Reflect impl on `{}`",
+                            s.type_name()
+                        ))
+                    })?;
+                    Ok(name.to_owned())
+                })
+                .collect::<Result<_, JsValue>>()?,
+            ReflectRef::Tuple(tuple) => (0..tuple.field_len()).map(|i| i.to_string()).collect(),
+            ReflectRef::TupleStruct(tuple_struct) => (0..tuple_struct.field_len())
+                .map(|i| i.to_string())
+                .collect(),
+            _ => Vec::new(),
+        };
+
+        Ok(serde_wasm_bindgen::to_value(&fields)?)
     }
 
     pub fn op_value_ref_to_string(&self, rid: u32, value_ref: JsValue) -> Result<JsValue, JsValue> {
