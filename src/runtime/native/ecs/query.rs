@@ -2,16 +2,11 @@ use super::{
     v8_utils::{create_value_ref_object, ValueRefObject},
     WorldResource,
 };
-use crate::runtime::types::{JsComponentId, JsEntity};
+use crate::runtime::types::{JsComponentId, JsEntity, QueryDescriptor};
 use bevy::ecs::component::ComponentId;
 use bevy_ecs_dynamic::reflect_value_ref::query::EcsValueRefQuery;
 use deno_core::{error::AnyError, op, v8, OpState, ResourceId};
 use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize)]
-pub struct QueryDescriptor {
-    components: Vec<JsComponentId>,
-}
 
 #[derive(Serialize)]
 pub struct JsQueryItem {

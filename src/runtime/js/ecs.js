@@ -49,6 +49,7 @@
             ).map(({ entity, components }) => ({
                 entity,
                 components: components.map(wrapValueRef),
+                test: components,
             }));
         }
     }
