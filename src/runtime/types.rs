@@ -2,7 +2,9 @@ use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
     prelude::{Entity, World},
 };
-use bevy_reflect::TypeRegistryArc;
+use bevy_ecs_dynamic::reflect_value_ref::{ReflectValueRefBorrow, ReflectValueRefBorrowMut};
+use bevy_reflect::{Reflect, TypeRegistryArc};
+use bevy_reflect_fns::{PassMode, ReflectArg};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -86,4 +88,62 @@ impl From<Entity> for JsEntity {
 #[derive(Deserialize)]
 pub struct QueryDescriptor {
     pub components: Vec<JsComponentId>,
+}
+
+// Value, from which a `ReflectArg` can be borrowed
+pub enum ReflectArgIntermediate<'a> {
+    Value(ReflectArgIntermediateValue<'a>),
+    Primitive(Primitive, PassMode),
+}
+
+pub enum ReflectArgIntermediateValue<'a> {
+    Ref(ReflectValueRefBorrow<'a>),
+    #[allow(dead_code)]
+    RefMut(ReflectValueRefBorrowMut<'a>),
+    Owned(ReflectValueRefBorrow<'a>),
+}
+
+impl<'a> ReflectArgIntermediateValue<'a> {
+    pub fn as_arg(&mut self) -> ReflectArg<'_> {
+        match self {
+            ReflectArgIntermediateValue::Ref(val) => ReflectArg::Ref(&**val),
+            ReflectArgIntermediateValue::RefMut(val) => ReflectArg::RefMut(&mut **val),
+            ReflectArgIntermediateValue::Owned(val) => ReflectArg::Owned(&**val),
+        }
+    }
+}
+impl<'a> ReflectArgIntermediate<'a> {
+    pub fn as_arg(&mut self) -> ReflectArg<'_> {
+        match self {
+            ReflectArgIntermediate::Value(val) => val.as_arg(),
+            ReflectArgIntermediate::Primitive(prim, pass_mode) => prim.as_arg(*pass_mode),
+        }
+    }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Primitive {
+    f32(f32),
+    f64(f64),
+    i32(i32),
+    u32(u32),
+}
+
+impl Primitive {
+    pub fn as_arg(&mut self, pass_mode: PassMode) -> ReflectArg<'_> {
+        let reflect: &mut dyn Reflect = match self {
+            Primitive::f32(val) => val,
+            Primitive::f64(val) => val,
+            Primitive::i32(val) => val,
+            Primitive::u32(val) => val,
+        };
+
+        match pass_mode {
+            PassMode::Ref => ReflectArg::Ref(reflect),
+            PassMode::RefMut => ReflectArg::RefMut(reflect),
+            PassMode::Owned => ReflectArg::Owned(reflect),
+        }
+    }
 }

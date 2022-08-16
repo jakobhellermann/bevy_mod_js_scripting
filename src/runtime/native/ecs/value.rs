@@ -36,8 +36,8 @@ pub fn op_value_ref_get(
     let reflect_methods = type_registry
         .get_type_data::<bevy_reflect_fns::ReflectMethods>(value_ref.get(&world)?.type_id());
     if let Some(reflect_methods) = reflect_methods {
-        let method_name = path.trim_start_matches(".");
-        if let Some(reflect_function) = reflect_methods.get(method_name.trim_start_matches(".")) {
+        let method_name = path.trim_start_matches('.');
+        if let Some(reflect_function) = reflect_methods.get(method_name.trim_start_matches('.')) {
             return Ok(unsafe {
                 create_value_ref_object(
                     scope,
@@ -146,6 +146,6 @@ pub fn op_value_ref_to_string(
             let reflect = value.get(&world)?;
             Ok(format!("{reflect:?}"))
         }
-        ReflectValueRefTransmit::Method(_, method) => Ok(format!("{}", method.fn_name)),
+        ReflectValueRefTransmit::Method(_, method) => Ok(method.fn_name.to_string()),
     }
 }
