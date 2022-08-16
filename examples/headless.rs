@@ -24,33 +24,7 @@ fn main() {
         .add_startup_system(setup)
         .add_js_system("scripts/headless.ts")
         .register_type::<TestComponent>()
-        .register_type::<Scoreboard>()
-        .insert_resource(Scoreboard::default())
         .run();
-}
-
-// This resource tracks the game's score
-#[derive(Reflect)]
-struct Scoreboard {
-    score: usize,
-    extra: ExtraData,
-}
-
-#[derive(Reflect)]
-struct ExtraData {
-    name: String,
-}
-
-impl Default for Scoreboard {
-    fn default() -> Self {
-        Self {
-            score: 7,
-            extra: ExtraData {
-                name: "Awesome".into(),
-            },
-        }
-    }
-}
 
 #[derive(Component, Reflect)]
 struct TestComponent {

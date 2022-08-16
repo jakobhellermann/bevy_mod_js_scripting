@@ -23,7 +23,7 @@ function run() {
     // info(world.resources.map(info => info.name));
     // info("Resources (headless): " + filterComponentInfos(world.resources, "headless::").join(", "));
     // info("Entitites: " + (world.entities.map(entity => `Entity(${entity.id}v${entity.generation})`).join(", ")));
-    // info("----------");
+    info("----------");
 
     let transformId = componentId(
       "bevy_transform::components::transform::Transform"
