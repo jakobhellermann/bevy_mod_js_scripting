@@ -1,3 +1,5 @@
+use crate::runtime::types::{Primitive, ReflectArgIntermediate, ReflectArgIntermediateValue};
+
 use super::{
     v8_utils::{
         create_value_ref_object, reflect_value_ref_from_v8_value_transmit,
@@ -5,69 +7,10 @@ use super::{
     },
     WorldResource,
 };
-use bevy::prelude::*;
-use bevy_ecs_dynamic::reflect_value_ref::{
-    ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
-};
+use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect_fns::{PassMode, ReflectArg};
 use deno_core::{error::AnyError, op, serde_v8, v8, OpState, ResourceId};
 use std::{any::TypeId, cell::RefCell, rc::Rc};
-
-// Value, from which a `ReflectArg` can be borrowed
-enum ReflectArgIntermediate<'a> {
-    Value(ReflectArgIntermediateValue<'a>),
-    Primitive(Primitive, PassMode),
-}
-
-enum ReflectArgIntermediateValue<'a> {
-    Ref(ReflectValueRefBorrow<'a>),
-    #[allow(dead_code)]
-    RefMut(ReflectValueRefBorrowMut<'a>),
-    Owned(ReflectValueRefBorrow<'a>),
-}
-
-impl<'a> ReflectArgIntermediateValue<'a> {
-    fn to_arg(&mut self) -> ReflectArg<'_> {
-        match self {
-            ReflectArgIntermediateValue::Ref(val) => ReflectArg::Ref(&**val),
-            ReflectArgIntermediateValue::RefMut(val) => ReflectArg::RefMut(&mut **val),
-            ReflectArgIntermediateValue::Owned(val) => ReflectArg::Owned(&**val),
-        }
-    }
-}
-impl<'a> ReflectArgIntermediate<'a> {
-    fn to_arg(&mut self) -> ReflectArg<'_> {
-        match self {
-            ReflectArgIntermediate::Value(val) => val.to_arg(),
-            ReflectArgIntermediate::Primitive(prim, pass_mode) => prim.to_arg(*pass_mode),
-        }
-    }
-}
-
-#[allow(non_camel_case_types)]
-enum Primitive {
-    f32(f32),
-    f64(f64),
-    i32(i32),
-    u32(u32),
-}
-
-impl Primitive {
-    fn to_arg(&mut self, pass_mode: PassMode) -> ReflectArg<'_> {
-        let reflect: &mut dyn Reflect = match self {
-            Primitive::f32(val) => val,
-            Primitive::f64(val) => val,
-            Primitive::i32(val) => val,
-            Primitive::u32(val) => val,
-        };
-
-        match pass_mode {
-            PassMode::Ref => ReflectArg::Ref(reflect),
-            PassMode::RefMut => ReflectArg::RefMut(reflect),
-            PassMode::Owned => ReflectArg::Owned(reflect),
-        }
-    }
-}
 
 #[op(v8)]
 fn op_value_ref_call(
@@ -150,7 +93,7 @@ fn op_value_ref_call(
         .collect::<Result<Vec<_>, AnyError>>()?;
     let mut args: Vec<ReflectArg> = std::iter::once(&mut receiver_intermediate)
         .chain(arg_intermediates.iter_mut())
-        .map(|intermediate| intermediate.to_arg())
+        .map(|intermediate| intermediate.as_arg())
         .collect();
 
     let ret = method.call(args.as_mut_slice())?;
