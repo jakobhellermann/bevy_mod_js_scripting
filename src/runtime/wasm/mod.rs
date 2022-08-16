@@ -1,32 +1,31 @@
-use std::any::TypeId;
-use std::cell::RefCell;
+mod ecs;
+mod log;
+
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use bevy::ecs::component::ComponentId;
-use bevy::utils::{HashMap, HashSet};
-use bevy::{
-    prelude::*,
-    utils::tracing::{event, span, Level},
-};
-use bevy_ecs_dynamic::reflect_value_ref::query::EcsValueRefQuery;
-use bevy_ecs_dynamic::reflect_value_ref::{EcsValueRef, ReflectValueRef};
-use bevy_reflect::{ReflectRef, TypeRegistryArc};
-use bevy_reflect_fns::{PassMode, ReflectArg, ReflectFunction};
+use bevy::prelude::*;
+use bevy::utils::HashMap;
+use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
+use bevy_reflect_fns::ReflectFunction;
 use serde::{Deserialize, Serialize};
 use slotmap::SlotMap;
 use wasm_bindgen::{prelude::*, JsCast};
-use wasm_mutex::Mutex;
+use wasm_mutex::{Mutex, MutexRef};
 
 use super::JsRuntimeApi;
 use crate::asset::JsScript;
-use crate::runtime::types::{
-    ComponentIdOrBevyType, JsComponentInfo, JsEntity, Primitive, QueryDescriptor,
-    ReflectArgIntermediate, ReflectArgIntermediateValue,
-};
+use crate::runtime::types::JsEntity;
 
+/// Panic message when a mutex lock fails
 const LOCK_SHOULD_NOT_FAIL: &str =
     "Mutex lock should not fail because there should be no concurrent access";
+
+/// Error message thrown when a value ref refers to a value that doesn't exist.
+const REF_NOT_EXIST: &str =
+    "Value referenced does not exist. Each value ref is only valid for the duration of the script \
+    execution that it was created in. You may have attempted to use a value from a previous sciprt \
+    run.";
 
 const WORLD_RID: u32 = 0;
 
@@ -52,439 +51,19 @@ struct BevyModJsScripting {
     state: Rc<Mutex<JsRuntimeState>>,
 }
 
+impl BevyModJsScripting {
+    /// Lock the state and panic if the lock cannot be obtained immediately.
+    fn state(&self) -> MutexRef<JsRuntimeState> {
+        self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL)
+    }
+}
+
 #[derive(Default)]
 struct JsRuntimeState {
     current_script_path: PathBuf,
     world: World,
     value_refs: SlotMap<JsValueRefKey, ReflectValueRef>,
     reflect_functions: SlotMap<ReflectFunctionKey, ReflectFunction>,
-}
-
-macro_rules! try_downcast_leaf_get {
-    ($value:ident for $($ty:ty $(,)?),*) => {
-        $(if let Some(value) = $value.downcast_ref::<$ty>() {
-            let value = serde_wasm_bindgen::to_value(value)?;
-            return Ok(value);
-        })*
-    };
-}
-
-macro_rules! try_downcast_leaf_set {
-    ($value:ident <- $new_value:ident for $($ty:ty $(,)?),*) => {
-        $(if let Some(value) = $value.downcast_mut::<$ty>() {
-            *value = serde_wasm_bindgen::from_value($new_value)?;
-            return Ok(());
-        })*
-    };
-}
-
-#[wasm_bindgen]
-impl BevyModJsScripting {
-    pub fn op_log(&self, level: &str, text: &str) {
-        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let path = &state.current_script_path;
-
-        let level: Level = level.parse().unwrap_or(Level::INFO);
-        if level == Level::TRACE {
-            let _span = span!(Level::TRACE, "script", ?path).entered();
-            event!(target: "js_runtime", Level::TRACE, "{text}");
-        } else if level == Level::DEBUG {
-            let _span = span!(Level::DEBUG, "script", ?path).entered();
-            event!(target: "js_runtime", Level::DEBUG, "{text}");
-        } else if level == Level::INFO {
-            let _span = span!(Level::INFO, "script", ?path).entered();
-            event!(target: "js_runtime", Level::INFO, "{text}");
-        } else if level == Level::WARN {
-            let _span = span!(Level::WARN, "script", ?path).entered();
-            event!(target: "js_runtime", Level::WARN, "{text}");
-        } else if level == Level::ERROR {
-            let _span = span!(Level::ERROR, "script", ?path).entered();
-            event!(target: "js_runtime", Level::ERROR, "{text}");
-        }
-    }
-
-    pub fn op_world_tostring(&self, rid: u32) -> String {
-        assert_eq!(rid, WORLD_RID);
-        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let world = &state.world;
-
-        format!("{world:?}")
-    }
-
-    pub fn op_world_components(&self, rid: u32) -> JsValue {
-        assert_eq!(rid, WORLD_RID);
-        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let world = &state.world;
-
-        let resource_components: HashSet<ComponentId> =
-            world.archetypes().resource().components().collect();
-
-        let infos = world
-            .components()
-            .iter()
-            .filter(|info| !resource_components.contains(&info.id()))
-            .map(JsComponentInfo::from)
-            .collect::<Vec<_>>();
-
-        serde_wasm_bindgen::to_value(&infos).unwrap()
-    }
-
-    pub fn op_world_resources(&self, rid: u32) -> JsValue {
-        assert_eq!(rid, WORLD_RID);
-        let state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let world = &state.world;
-
-        let infos = world
-            .archetypes()
-            .resource()
-            .components()
-            .map(|id| world.components().get_info(id).unwrap())
-            .map(JsComponentInfo::from)
-            .collect::<Vec<_>>();
-
-        serde_wasm_bindgen::to_value(&infos).unwrap()
-    }
-
-    pub fn op_world_entities(&self, rid: u32) -> JsValue {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let world = &mut state.world;
-
-        let entities = world
-            .query::<Entity>()
-            .iter(world)
-            .map(JsEntity::from)
-            .collect::<Vec<_>>();
-
-        serde_wasm_bindgen::to_value(&entities).unwrap()
-    }
-
-    // TODO: Get rid of all the unwraps and throw proper errors
-    pub fn op_world_query(&self, rid: u32, query: JsValue) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
-
-        let descriptor: QueryDescriptor = serde_wasm_bindgen::from_value(query)?;
-
-        let components: Vec<ComponentId> = descriptor
-            .components
-            .iter()
-            .map(ComponentId::from)
-            .collect();
-
-        let mut query = EcsValueRefQuery::new(world, &components);
-        let results = query
-            .iter(world)
-            .map(|item| {
-                let components = item
-                    .items
-                    .into_iter()
-                    .map(|value| JsValueRef {
-                        key: value_refs.insert(ReflectValueRef::ecs_ref(value)),
-                        function: None,
-                    })
-                    .collect();
-
-                JsQueryItem {
-                    entity: item.entity.into(),
-                    components,
-                }
-            })
-            .collect::<Vec<_>>();
-
-        Ok(serde_wasm_bindgen::to_value(&results).unwrap())
-    }
-
-    pub fn op_world_get_resource(
-        &self,
-        rid: u32,
-        component_id: JsValue,
-    ) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
-
-        let component_id: ComponentIdOrBevyType = serde_wasm_bindgen::from_value(component_id)?;
-        let component_id = component_id.component_id(world).unwrap();
-
-        let value_ref = EcsValueRef::resource(world, component_id);
-        if world.get_resource_by_id(component_id).is_none() || value_ref.is_err() {
-            return Ok(JsValue::NULL);
-        }
-
-        let value_ref = value_ref.unwrap();
-        let value_ref = JsValueRef {
-            key: value_refs.insert(ReflectValueRef::ecs_ref(value_ref)),
-            function: None,
-        };
-
-        Ok(serde_wasm_bindgen::to_value(&value_ref)?)
-    }
-
-    pub fn op_value_ref_get(
-        &self,
-        rid: u32,
-        value_ref: JsValue,
-        path: &str,
-    ) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world,
-            value_refs,
-            reflect_functions,
-            ..
-        } = &mut *state;
-
-        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(value_ref)?;
-        let value_ref = match value_refs.get(value_ref.key) {
-            Some(value_ref) => value_ref,
-            None => return Ok(JsValue::NULL),
-        };
-
-        let type_registry = world.resource::<TypeRegistryArc>();
-        let type_registry = type_registry.read();
-
-        let reflect_methods = type_registry.get_type_data::<bevy_reflect_fns::ReflectMethods>(
-            value_ref.get(world).unwrap().type_id(),
-        );
-
-        if let Some(reflect_methods) = reflect_methods {
-            let method_name = path.trim_start_matches('.');
-            if let Some(reflect_function) = reflect_methods.get(method_name.trim_start_matches('.'))
-            {
-                let value = JsValueRef {
-                    key: value_refs.insert(value_ref.clone()),
-                    function: Some(reflect_functions.insert(reflect_function.clone())),
-                };
-
-                return Ok(serde_wasm_bindgen::to_value(&value)?);
-            }
-        }
-        let value_ref = value_ref.append_path(path, world).unwrap();
-
-        {
-            let value = value_ref.get(world).unwrap();
-
-            try_downcast_leaf_get!(value for
-                u8, u16, u32, u64, u128, usize,
-                i8, i16, i32, i64, i128, isize,
-                String, char, bool, f32, f64
-            );
-        }
-
-        let object = JsValueRef {
-            key: value_refs.insert(value_ref),
-            function: None,
-        };
-
-        Ok(serde_wasm_bindgen::to_value(&object)?)
-    }
-
-    pub fn op_value_ref_set(
-        &self,
-        rid: u32,
-        value_ref: JsValue,
-        path: &str,
-        new_value: JsValue,
-    ) -> Result<(), JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
-
-        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(value_ref)?;
-        let value_ref = match value_refs.get_mut(value_ref.key) {
-            Some(value_ref) => value_ref,
-            None => return Ok(()),
-        };
-        let mut value_ref = value_ref.append_path(path, world).unwrap();
-
-        let mut reflect = value_ref.get_mut(world).unwrap();
-
-        try_downcast_leaf_set!(reflect <- new_value for
-            u8, u16, u32, u64, u128, usize,
-            i8, i16, i32, i64, i128, isize,
-            String, char, bool, f32, f64
-        );
-
-        Err(JsValue::from_str(&format!(
-            "could not set value reference: type `{}` is not a primitive type",
-            reflect.type_name(),
-        )))
-    }
-
-    pub fn op_value_ref_keys(&self, rid: u32, value_ref: JsValue) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
-
-        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(value_ref)?;
-        let value_ref = match value_refs.get_mut(value_ref.key) {
-            Some(value_ref) => value_ref,
-            None => return Ok(JsValue::NULL),
-        };
-        let reflect = value_ref.get(world).unwrap();
-
-        let fields = match reflect.reflect_ref() {
-            ReflectRef::Struct(s) => (0..s.field_len())
-                .map(|i| {
-                    let name = s.name_at(i).ok_or_else(|| {
-                        JsValue::from_str(&format!(
-                            "misbehaving Reflect impl on `{}`",
-                            s.type_name()
-                        ))
-                    })?;
-                    Ok(name.to_owned())
-                })
-                .collect::<Result<_, JsValue>>()?,
-            ReflectRef::Tuple(tuple) => (0..tuple.field_len()).map(|i| i.to_string()).collect(),
-            ReflectRef::TupleStruct(tuple_struct) => (0..tuple_struct.field_len())
-                .map(|i| i.to_string())
-                .collect(),
-            _ => Vec::new(),
-        };
-
-        Ok(serde_wasm_bindgen::to_value(&fields)?)
-    }
-
-    pub fn op_value_ref_to_string(&self, rid: u32, value_ref: JsValue) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
-
-        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(value_ref)?;
-        let value_ref = match value_refs.get(value_ref.key) {
-            Some(value_ref) => value_ref,
-            None => return Ok(JsValue::NULL),
-        };
-
-        let reflect = value_ref.get(world).unwrap();
-
-        Ok(JsValue::from_str(&format!("{reflect:?}")))
-    }
-
-    pub fn op_value_ref_call(
-        &self,
-        rid: u32,
-        receiver: JsValue,
-        args: JsValue,
-    ) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        let JsRuntimeState {
-            world,
-            value_refs,
-            reflect_functions,
-            ..
-        } = &mut *state;
-
-        #[derive(Deserialize, Debug)]
-        #[serde(untagged)]
-        enum ArgType {
-            JsValueRef(JsValueRef),
-            Number(f64),
-        }
-
-        // Deserialize the receiver
-        let receiver: JsValueRef = serde_wasm_bindgen::from_value(receiver)?;
-
-        // Get the receivers reflect_function
-        let method = match receiver.function {
-            Some(function) => match reflect_functions.get_mut(function) {
-                Some(function) => function,
-                None => panic!(),
-            },
-            None => panic!(),
-        };
-        let receiver = match value_refs.get(receiver.key) {
-            Some(value_ref) => value_ref.clone(),
-            None => panic!(),
-        };
-
-        let args: js_sys::Array = args.dyn_into().unwrap();
-
-        let receiver_pass_mode = method.signature[0].0;
-        let receiver_intermediate = match receiver_pass_mode {
-            PassMode::Ref => ReflectArgIntermediateValue::Ref(receiver.get(world).unwrap()),
-            PassMode::RefMut => {
-                unimplemented!("values passed by mutable reference in reflect fn call")
-            }
-            PassMode::Owned => ReflectArgIntermediateValue::Owned(receiver.get(world).unwrap()),
-        };
-        let mut receiver_intermediate = ReflectArgIntermediate::Value(receiver_intermediate);
-
-        let mut arg_intermediates = args
-            .iter()
-            .zip(method.signature.iter().skip(1))
-            .map(|(arg, &(pass_mode, type_id))| {
-                let downcast_primitive = match type_id {
-                    type_id if type_id == TypeId::of::<f32>() => {
-                        Some(Primitive::f32(serde_wasm_bindgen::from_value(arg.clone())?))
-                    }
-                    type_id if type_id == TypeId::of::<f64>() => {
-                        Some(Primitive::f64(serde_wasm_bindgen::from_value(arg.clone())?))
-                    }
-                    type_id if type_id == TypeId::of::<i32>() => {
-                        Some(Primitive::i32(serde_wasm_bindgen::from_value(arg.clone())?))
-                    }
-                    type_id if type_id == TypeId::of::<u32>() => {
-                        Some(Primitive::u32(serde_wasm_bindgen::from_value(arg.clone())?))
-                    }
-                    _ => None,
-                };
-                if let Some(primitive) = downcast_primitive {
-                    return Ok(ReflectArgIntermediate::Primitive(primitive, pass_mode));
-                }
-
-                let value: JsValueRef = serde_wasm_bindgen::from_value(arg)?;
-                let value = match value_refs.get(value.key) {
-                    Some(value_ref) => value_ref,
-                    None => panic!(),
-                };
-                let value = match pass_mode {
-                    PassMode::Ref => ReflectArgIntermediateValue::Ref(value.get(world).unwrap()),
-                    PassMode::RefMut => {
-                        unimplemented!("values passed by mutable reference in reflect fn call")
-                    }
-                    PassMode::Owned => {
-                        ReflectArgIntermediateValue::Owned(value.get(world).unwrap())
-                    }
-                };
-
-                Ok(ReflectArgIntermediate::Value(value))
-            })
-            .collect::<Result<Vec<_>, JsValue>>()?;
-        let mut args: Vec<ReflectArg> = std::iter::once(&mut receiver_intermediate)
-            .chain(arg_intermediates.iter_mut())
-            .map(|intermediate| intermediate.as_arg())
-            .collect();
-
-        let ret = method.call(args.as_mut_slice()).unwrap();
-        let ret = Rc::new(RefCell::new(ret));
-        let ret = ReflectValueRef::free(ret);
-
-        drop(args);
-        drop(arg_intermediates);
-        drop(receiver_intermediate);
-
-        let ret = JsValueRef {
-            key: value_refs.insert(ret),
-            function: None,
-        };
-
-        Ok(serde_wasm_bindgen::to_value(&ret)?)
-    }
 }
 
 #[wasm_bindgen(module = "/src/runtime/wasm/wasm_setup.js")]
@@ -619,5 +198,34 @@ impl JsRuntimeApi for JsRuntime {
         let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
         state.current_script_path = PathBuf::new();
         std::mem::swap(&mut state.world, world);
+    }
+}
+
+/// Helper trait for mapping errors to [`JsValue`]s
+pub trait ToJsErr<T> {
+    /// Convert the error to a [`JsValue`]
+    fn to_js_error(self) -> Result<T, JsValue>;
+}
+
+impl<T, D: std::fmt::Display> ToJsErr<T> for Result<T, D> {
+    fn to_js_error(self) -> Result<T, JsValue> {
+        match self {
+            Ok(ok) => Ok(ok),
+            Err(e) => Err(JsValue::from_str(&e.to_string())),
+        }
+    }
+}
+
+/// Helper trait to get a reflect value ref from the `value_refs` slotmap on [`JsRuntimeState`].
+trait GetReflectValueRef {
+    /// Casts a [`JsValue`] to a [`JsValueRef`] and loads its [`ReflectValueRef`].
+    fn get_reflect_value_ref(&self, value: JsValue) -> Result<&ReflectValueRef, JsValue>;
+}
+
+impl GetReflectValueRef for SlotMap<JsValueRefKey, ReflectValueRef> {
+    fn get_reflect_value_ref(&self, js_value: JsValue) -> Result<&ReflectValueRef, JsValue> {
+        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(js_value)?;
+
+        self.get(value_ref.key).ok_or(REF_NOT_EXIST).to_js_error()
     }
 }
