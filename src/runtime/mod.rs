@@ -15,12 +15,12 @@ mod native;
 pub use native::*;
 
 /// The API implemented by different script runtimes.
-/// 
+///
 /// Currently we have a native runtime built on [`deno_core`] and a web runtime utilizing
 /// [`wasm_bindgen`].
 pub trait JsRuntimeApi: FromWorld {
     /// Load a script
-    /// 
+    ///
     /// This will not reload a script that has already been loaded unless `reload` is set to `true`.
     fn load_script(&self, handle: &Handle<JsScript>, script: &JsScript, reload: bool);
 
@@ -30,5 +30,3 @@ pub trait JsRuntimeApi: FromWorld {
     /// Run a script
     fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World);
 }
-
-

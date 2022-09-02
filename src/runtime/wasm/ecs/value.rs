@@ -263,7 +263,9 @@ impl BevyModJsScripting {
                 // Otherwise, try get the arg as a value ref
                 let value_ref = value_refs.get_reflect_value_ref(arg)?;
                 let value_ref = match pass_mode {
-                    PassMode::Ref => ReflectArgIntermediateValue::Ref(value_ref.get(world).unwrap()),
+                    PassMode::Ref => {
+                        ReflectArgIntermediateValue::Ref(value_ref.get(world).unwrap())
+                    }
                     PassMode::RefMut => {
                         unimplemented!("values passed by mutable reference in reflect fn call")
                     }

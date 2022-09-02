@@ -1,4 +1,3 @@
-
 mod info;
 mod query;
 mod resource;
