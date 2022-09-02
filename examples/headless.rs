@@ -25,6 +25,7 @@ fn main() {
         .add_js_system("scripts/headless.ts")
         .register_type::<TestComponent>()
         .run();
+}
 
 #[derive(Component, Reflect)]
 struct TestComponent {
