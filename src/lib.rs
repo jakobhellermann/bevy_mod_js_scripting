@@ -4,7 +4,8 @@ mod asset;
 mod runtime;
 mod transpile;
 
-use asset::{JsScript, JsScriptLoader};
+pub use asset::JsScript;
+use asset::JsScriptLoader;
 use bevy::{asset::AssetStage, prelude::*};
 
 use runtime::{JsRuntime, JsRuntimeApi};
@@ -12,7 +13,7 @@ use runtime::{JsRuntime, JsRuntimeApi};
 pub struct JsScriptingPlugin;
 
 #[derive(Default, Deref, DerefMut)]
-pub struct ActiveScripts(Vec<Handle<JsScript>>);
+pub struct ActiveScripts(pub Vec<Handle<JsScript>>);
 
 impl Plugin for JsScriptingPlugin {
     fn build(&self, app: &mut App) {
