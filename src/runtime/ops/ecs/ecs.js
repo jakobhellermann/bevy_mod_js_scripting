@@ -12,29 +12,25 @@
     }
 
     class World {
-        get #rid() {
-            return 0;
-        }
-
         toString() {
-            return bevyModJsScriptingOpSync("op_world_tostring", this.rid);
+            return bevyModJsScriptingOpSync("ecs_world_to_string", this.rid);
         }
 
         get components() {
-            return bevyModJsScriptingOpSync("op_world_components", this.rid);
+            return bevyModJsScriptingOpSync("ecs_world_components", this.rid);
         }
 
         get resources() {
-            return bevyModJsScriptingOpSync("op_world_resources", this.rid);
+            return bevyModJsScriptingOpSync("ecs_world_resources", this.rid);
         }
 
         get entities() {
-            return bevyModJsScriptingOpSync("op_world_entities", this.rid);
+            return bevyModJsScriptingOpSync("ecs_world_entities", this.rid);
         }
 
         resource(componentId) {
             let resource = bevyModJsScriptingOpSync(
-                "op_world_get_resource",
+                "ecs_world_get_resource",
                 this.rid,
                 componentId
             );
@@ -43,8 +39,7 @@
 
         query(descriptor) {
             return bevyModJsScriptingOpSync(
-                "op_world_query",
-                this.rid,
+                "ecs_world_query",
                 descriptor
             ).map(({ entity, components }) => ({
                 entity,
@@ -66,8 +61,7 @@
             ownKeys: (target) => {
                 return [
                     ...bevyModJsScriptingOpSync(
-                        "op_value_ref_keys",
-                        world.rid,
+                        "ecs_value_ref_keys",
                         target.valueRef
                     ),
                     VALUE_REF_GET_INNER,
@@ -80,24 +74,22 @@
                     case "toString":
                         return () =>
                             bevyModJsScriptingOpSync(
-                                "op_value_ref_to_string",
-                                world.rid,
+                                "ecs_value_ref_to_string",
                                 target.valueRef
                             );
                     default:
+                        const isInt = !isNaN(parseInt(p));
                         let valueRef = bevyModJsScriptingOpSync(
-                            "op_value_ref_get",
-                            world.rid,
+                            "ecs_value_ref_get",
                             target.valueRef,
-                            "." + p
+                            isInt ? `[${p}]` : "." + p
                         );
                         return wrapValueRef(valueRef);
                 }
             },
             set: (target, p, value) => {
                 bevyModJsScriptingOpSync(
-                    "op_value_ref_set",
-                    world.rid,
+                    "ecs_value_ref_set",
                     target.valueRef,
                     "." + p,
                     value
@@ -105,8 +97,7 @@
             },
             apply: (target, thisArg, args) => {
                 let ret = bevyModJsScriptingOpSync(
-                    "op_value_ref_call",
-                    world.rid,
+                    "ecs_value_ref_call",
                     target.valueRef,
                     args.map((arg) => {
                         let valueRef = arg[VALUE_REF_GET_INNER]?.valueRef;

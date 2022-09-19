@@ -1,22 +1,19 @@
+use anyhow::Context;
 use bevy::ecs::component::ComponentId;
 use bevy_ecs_dynamic::reflect_value_ref::{query::EcsValueRefQuery, ReflectValueRef};
-use wasm_bindgen::prelude::*;
 
-use crate::runtime::{
-    types::QueryDescriptor,
-    wasm::{BevyModJsScripting, JsQueryItem, JsRuntimeState, JsValueRef, WORLD_RID},
-};
+use crate::runtime::types::{JsQueryItem, JsValueRef, QueryDescriptor};
 
-#[wasm_bindgen]
-impl BevyModJsScripting {
-    pub fn op_world_query(&self, rid: u32, query: JsValue) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state();
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
+use super::WithValueRefs;
 
-        let descriptor: QueryDescriptor = serde_wasm_bindgen::from_value(query)?;
+pub fn ecs_world_query(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    world.with_value_refs(|world, value_refs, _| {
+        let (descriptor,): (QueryDescriptor,) =
+            serde_json::from_value(args).context("Parse world query descriptor")?;
 
         let components: Vec<ComponentId> = descriptor
             .components
@@ -44,6 +41,6 @@ impl BevyModJsScripting {
             })
             .collect::<Vec<_>>();
 
-        Ok(serde_wasm_bindgen::to_value(&results)?)
-    }
+        Ok(serde_json::to_value(results)?)
+    })
 }
