@@ -8,16 +8,34 @@ pub use asset::JsScript;
 use asset::JsScriptLoader;
 use bevy::{asset::AssetStage, prelude::*};
 
+use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
+use bevy_reflect_fns::ReflectFunction;
 use runtime::{JsRuntime, JsRuntimeApi};
+use slotmap::SlotMap;
 
 pub struct JsScriptingPlugin;
 
 #[derive(Default, Deref, DerefMut)]
 pub struct ActiveScripts(pub Vec<Handle<JsScript>>);
 
+slotmap::new_key_type! {
+    struct JsValueRefKey;
+    struct ReflectFunctionKey;
+}
+
+/// Resource that stores [`ReflectValueRef`]s that are accessible to the JS runtime
+#[derive(Default, Deref, DerefMut)]
+struct JsValueRefs(SlotMap<JsValueRefKey, ReflectValueRef>);
+
+/// Resource that stores [`ReflectFunction`]s that are accessible to the JS runtime
+#[derive(Default, Deref, DerefMut)]
+struct JsReflectFunctions(SlotMap<ReflectFunctionKey, ReflectFunction>);
+
 impl Plugin for JsScriptingPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<JsRuntime>()
+            .init_non_send_resource::<JsValueRefs>()
+            .init_resource::<JsReflectFunctions>()
             .init_resource::<ActiveScripts>()
             .add_asset::<JsScript>()
             .add_asset_loader(JsScriptLoader)

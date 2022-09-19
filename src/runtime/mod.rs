@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use std::{path::PathBuf, sync::Arc};
+
+use bevy::{prelude::*, utils::HashMap};
 
 use crate::asset::JsScript;
 
@@ -13,6 +15,8 @@ pub use wasm::*;
 mod native;
 #[cfg(not(target_arch = "wasm32"))]
 pub use native::*;
+
+mod ops;
 
 /// The API implemented by different script runtimes.
 ///
@@ -29,4 +33,57 @@ pub trait JsRuntimeApi: FromWorld {
 
     /// Run a script
     fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World);
+}
+
+pub type OpMap = HashMap<&'static str, Arc<dyn JsRuntimeOp>>;
+
+/// Resource that may be inserted before adding the [`JsScriptingPlugin`][crate::JsScriptingPlugin]
+/// to configure the JS runtime.
+#[derive(Default)]
+pub struct JsRuntimeConfig {
+    /// Mapping of custom operations that may be called from the JavaScript environment.
+    ///
+    /// The string key is the op name which must be passed as the first argument of the
+    /// `bevyModJsScriptingOpSync` JS global when executing the op.
+    pub custom_ops: OpMap,
+}
+
+/// Info about the currently executing script, exposed to [`JsRuntimeOp`]s.
+pub struct ScriptInfo {
+    pub path: PathBuf,
+}
+
+pub trait JsRuntimeOp {
+    /// Returns any extra JavaScript that should be executed when the runtime is initialized.
+    fn js(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// The function called to execute the operation
+    fn run(
+        &self,
+        script_info: &ScriptInfo,
+        world: &mut World,
+        args: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        // Satisfy linter without changing argument names for the sake of the API docs
+        let (_, _, _) = (script_info, world, args);
+
+        // Ops may be inserted simply to add JS, so a default implementation of `run` is useful to
+        // indicate that the op is not meant to be run.
+        anyhow::bail!("Op is not meant to be called");
+    }
+}
+
+impl<T: Fn(&ScriptInfo, &mut World, serde_json::Value) -> anyhow::Result<serde_json::Value>>
+    JsRuntimeOp for T
+{
+    fn run(
+        &self,
+        script_info: &ScriptInfo,
+        world: &mut World,
+        args: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        self(script_info, world, args)
+    }
 }

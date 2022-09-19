@@ -5,11 +5,11 @@ declare namespace Deno {
 }
 
 // log.s
-declare function trace(val: any): void;
-declare function debug(val: any): void;
-declare function info(val: any): void;
-declare function warn(val: any): void;
-declare function error(val: any): void;
+declare function trace(...args: any): void;
+declare function debug(...args: any): void;
+declare function info(...args: any): void;
+declare function warn(...args: any): void;
+declare function error(...args: any): void;
 
 // ecs.js
 declare interface BevyScript {

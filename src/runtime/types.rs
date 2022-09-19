@@ -7,6 +7,20 @@ use bevy_reflect::{Reflect, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg};
 use serde::{Deserialize, Serialize};
 
+use crate::{JsValueRefKey, ReflectFunctionKey};
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct JsValueRef {
+    pub(crate) key: JsValueRefKey,
+    pub(crate) function: Option<ReflectFunctionKey>,
+}
+
+#[derive(Serialize)]
+pub struct JsQueryItem {
+    pub entity: JsEntity,
+    pub components: Vec<JsValueRef>,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum ComponentIdOrBevyType {

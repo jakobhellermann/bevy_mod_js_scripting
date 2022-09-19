@@ -1,23 +1,20 @@
 use std::{any::TypeId, cell::RefCell, rc::Rc};
 
+use anyhow::{format_err, Context};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
-use wasm_bindgen::{prelude::*, JsCast};
 
-use crate::runtime::{
-    types::{Primitive, ReflectArgIntermediate, ReflectArgIntermediateValue},
-    wasm::{
-        BevyModJsScripting, GetReflectValueRef, JsRuntimeState, JsValueRef, REF_NOT_EXIST,
-        WORLD_RID,
-    },
-    ToJsErr,
+use crate::runtime::types::{
+    JsValueRef, Primitive, ReflectArgIntermediate, ReflectArgIntermediateValue,
 };
+
+use super::WithValueRefs;
 
 macro_rules! try_downcast_leaf_get {
     ($value:ident for $($ty:ty $(,)?),*) => {
         $(if let Some(value) = $value.downcast_ref::<$ty>() {
-            let value = serde_wasm_bindgen::to_value(value)?;
+            let value = serde_json::to_value(value)?;
             return Ok(value);
         })*
     };
@@ -26,39 +23,35 @@ macro_rules! try_downcast_leaf_get {
 macro_rules! try_downcast_leaf_set {
     ($value:ident <- $new_value:ident for $($ty:ty $(,)?),*) => {
         $(if let Some(value) = $value.downcast_mut::<$ty>() {
-            *value = serde_wasm_bindgen::from_value($new_value)?;
-            return Ok(());
+            *value = serde_json::from_value($new_value)?;
+            return Ok(serde_json::Value::Null);
         })*
     };
 }
 
-#[wasm_bindgen]
-impl BevyModJsScripting {
-    pub fn op_value_ref_get(
-        &self,
-        rid: u32,
-        value_ref: JsValue,
-        path: &str,
-    ) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state();
-        let JsRuntimeState {
-            world,
-            value_refs,
-            reflect_functions,
-            ..
-        } = &mut *state;
+pub fn ecs_value_ref_get(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (value_ref, path): (JsValueRef, String) =
+        serde_json::from_value(args).context("parse args")?;
 
-        // Get the reflect value ref from the JS argument
-        let value_ref = value_refs.get_reflect_value_ref(value_ref)?;
-
+    world.with_value_refs(|world, value_refs, reflect_functions| {
         // Load the type registry
         let type_registry = world.resource::<TypeRegistryArc>();
         let type_registry = type_registry.read();
 
+        // Get the reflect value ref from the JS argument
+        let value_ref = value_refs
+            .get(value_ref.key)
+            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+            .clone();
+
         // See if we can find any reflect methods for this type in the type registry
-        let reflect_methods = type_registry
-            .get_type_data::<ReflectMethods>(value_ref.get(world).to_js_error()?.type_id());
+        let reflect_methods =
+            type_registry.get_type_data::<ReflectMethods>(value_ref.get(world)?.type_id());
 
         // If we found methods for this type
         if let Some(reflect_methods) = reflect_methods {
@@ -68,20 +61,20 @@ impl BevyModJsScripting {
             {
                 // Return a method reference
                 let value = JsValueRef {
-                    key: value_refs.insert(value_ref.clone()),
+                    key: value_refs.insert(value_ref),
                     function: Some(reflect_functions.insert(reflect_function.clone())),
                 };
 
-                return Ok(serde_wasm_bindgen::to_value(&value)?);
+                return Ok(serde_json::to_value(&value)?);
             }
         }
 
         // If we didn't find a method, add the path to our value ref
-        let value_ref = value_ref.append_path(path, world).to_js_error()?;
+        let value_ref = value_ref.append_path(&path, world)?;
 
         // Try to downcast the value to a primitive
         {
-            let value = value_ref.get(world).to_js_error()?;
+            let value = value_ref.get(world)?;
 
             try_downcast_leaf_get!(value for
                 u8, u16, u32, u64, u128, usize,
@@ -96,27 +89,28 @@ impl BevyModJsScripting {
             function: None,
         };
 
-        Ok(serde_wasm_bindgen::to_value(&object)?)
-    }
+        Ok(serde_json::to_value(object)?)
+    })
+}
 
-    pub fn op_value_ref_set(
-        &self,
-        rid: u32,
-        value_ref: JsValue,
-        path: &str,
-        new_value: JsValue,
-    ) -> Result<(), JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state();
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
+pub fn ecs_value_ref_set(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (value_ref, path, new_value): (JsValueRef, String, serde_json::Value) =
+        serde_json::from_value(args).context("parse args")?;
 
+    world.with_value_refs(|world, value_refs, _| {
         // Get the value ref from the JS arg
-        let value_ref = value_refs.get_reflect_value_ref(value_ref)?;
+        let value_ref = value_refs
+            .get(value_ref.key)
+            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+            .clone();
 
         // Access the provided path on the value ref
-        let mut value_ref = value_ref.append_path(path, world).unwrap();
+        let mut value_ref = value_ref.append_path(&path, world).unwrap();
 
         // Get the reflect value
         let mut reflect = value_ref.get_mut(world).unwrap();
@@ -128,21 +122,27 @@ impl BevyModJsScripting {
             String, char, bool, f32, f64
         );
 
-        Err(JsValue::from_str(&format!(
+        anyhow::bail!(
             "could not set value reference: type `{}` is not a primitive type",
             reflect.type_name(),
-        )))
-    }
+        );
+    })
+}
 
-    pub fn op_value_ref_keys(&self, rid: u32, value_ref: JsValue) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state();
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
+pub fn ecs_value_ref_keys(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (value_ref,): (JsValueRef,) = serde_json::from_value(args).context("parse args")?;
 
-        // Get the reflect ref from the JS arg
-        let value_ref = value_refs.get_reflect_value_ref(value_ref)?;
+    world.with_value_refs(|world, value_refs, _| {
+        // Get the value ref from the JS arg
+        let value_ref = value_refs
+            .get(value_ref.key)
+            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+            .clone();
         let reflect = value_ref.get(world).unwrap();
 
         // Enumerate the fields of the reflected object
@@ -150,14 +150,11 @@ impl BevyModJsScripting {
             ReflectRef::Struct(s) => (0..s.field_len())
                 .map(|i| {
                     let name = s.name_at(i).ok_or_else(|| {
-                        JsValue::from_str(&format!(
-                            "misbehaving Reflect impl on `{}`",
-                            s.type_name()
-                        ))
+                        format_err!("misbehaving Reflect impl on `{}`", s.type_name())
                     })?;
                     Ok(name.to_owned())
                 })
-                .collect::<Result<_, JsValue>>()?,
+                .collect::<anyhow::Result<_>>()?,
             ReflectRef::Tuple(tuple) => (0..tuple.field_len()).map(|i| i.to_string()).collect(),
             ReflectRef::TupleStruct(tuple_struct) => (0..tuple_struct.field_len())
                 .map(|i| i.to_string())
@@ -165,63 +162,52 @@ impl BevyModJsScripting {
             _ => Vec::new(),
         };
 
-        Ok(serde_wasm_bindgen::to_value(&fields)?)
-    }
+        Ok(serde_json::to_value(fields)?)
+    })
+}
 
-    pub fn op_value_ref_to_string(&self, rid: u32, value_ref: JsValue) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state();
-        let JsRuntimeState {
-            world, value_refs, ..
-        } = &mut *state;
+pub fn ecs_value_ref_to_string(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (value_ref,): (JsValueRef,) = serde_json::from_value(args).context("parse args")?;
 
-        // Get the value ref from JS arg
-        let value_ref = value_refs.get_reflect_value_ref(value_ref)?;
+    world.with_value_refs(|world, value_refs, _| {
+        // Get the value ref from the JS arg
+        let value_ref = value_refs
+            .get(value_ref.key)
+            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+            .clone();
         let reflect = value_ref.get(world).unwrap();
 
-        // Return the debug formatted string for the reflected object
-        Ok(JsValue::from_str(&format!("{reflect:?}")))
-    }
+        Ok(serde_json::Value::String(format!("{reflect:?}")))
+    })
+}
 
-    pub fn op_value_ref_call(
-        &self,
-        rid: u32,
-        receiver: JsValue,
-        args: JsValue,
-    ) -> Result<JsValue, JsValue> {
-        assert_eq!(rid, WORLD_RID);
-        let mut state = self.state();
-        let JsRuntimeState {
-            world,
-            value_refs,
-            reflect_functions,
-            ..
-        } = &mut *state;
+pub fn ecs_value_ref_call(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (receiver, args): (JsValueRef, Vec<serde_json::Value>) =
+        serde_json::from_value(args).context("parse args")?;
 
-        // Deserialize the receiver
-        let receiver: JsValueRef = serde_wasm_bindgen::from_value(receiver)?;
+    let ref_not_exist_err = || format_err!("Ref does not exist");
 
+    world.with_value_refs(|world, value_refs, reflect_functions| {
         // Get the receiver's reflect_function
         let method_key = receiver
             .function
-            .ok_or("Cannot call non-function ref")
-            .to_js_error()?;
+            .ok_or_else(|| format_err!("Cannot call non-function ref"))?;
         let method = reflect_functions
             .get_mut(method_key)
-            .ok_or(REF_NOT_EXIST)
-            .to_js_error()?;
+            .ok_or_else(ref_not_exist_err)?;
 
         // Get the receiver's reflect ref
-        let receiver = value_refs
-            .get(receiver.key)
-            .ok_or(REF_NOT_EXIST)
-            .to_js_error()?;
-
-        // Cast the argumetn list to a JS array
-        let args: js_sys::Array = args
-            .dyn_into()
-            .map_err(|_| "Argument list not an array")
-            .to_js_error()?;
+        let receiver = value_refs.get(receiver.key).ok_or_else(ref_not_exist_err)?;
 
         // Collect the receiver intermediate value
         let receiver_pass_mode = method.signature[0].0;
@@ -242,16 +228,16 @@ impl BevyModJsScripting {
                 // Try to cast the arg as a primitive
                 let downcast_primitive = match type_id {
                     type_id if type_id == TypeId::of::<f32>() => {
-                        Some(Primitive::f32(serde_wasm_bindgen::from_value(arg.clone())?))
+                        Some(Primitive::f32(serde_json::from_value(arg.clone())?))
                     }
                     type_id if type_id == TypeId::of::<f64>() => {
-                        Some(Primitive::f64(serde_wasm_bindgen::from_value(arg.clone())?))
+                        Some(Primitive::f64(serde_json::from_value(arg.clone())?))
                     }
                     type_id if type_id == TypeId::of::<i32>() => {
-                        Some(Primitive::i32(serde_wasm_bindgen::from_value(arg.clone())?))
+                        Some(Primitive::i32(serde_json::from_value(arg.clone())?))
                     }
                     type_id if type_id == TypeId::of::<u32>() => {
-                        Some(Primitive::u32(serde_wasm_bindgen::from_value(arg.clone())?))
+                        Some(Primitive::u32(serde_json::from_value(arg.clone())?))
                     }
                     _ => None,
                 };
@@ -261,7 +247,11 @@ impl BevyModJsScripting {
                 }
 
                 // Otherwise, try get the arg as a value ref
-                let value_ref = value_refs.get_reflect_value_ref(arg)?;
+                let value_ref: JsValueRef = serde_json::from_value(arg.clone())?;
+                let value_ref = value_refs
+                    .get(value_ref.key)
+                    .ok_or_else(|| format_err!("Value ref doesn't exist"))?;
+
                 let value_ref = match pass_mode {
                     PassMode::Ref => {
                         ReflectArgIntermediateValue::Ref(value_ref.get(world).unwrap())
@@ -276,7 +266,7 @@ impl BevyModJsScripting {
 
                 Ok(ReflectArgIntermediate::Value(value_ref))
             })
-            .collect::<Result<Vec<_>, JsValue>>()?;
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         // Collect references to our intermediates as [`ReflectArg`]s
         let mut args: Vec<ReflectArg> = std::iter::once(&mut receiver_intermediate)
@@ -301,6 +291,6 @@ impl BevyModJsScripting {
             function: None,
         };
 
-        Ok(serde_wasm_bindgen::to_value(&ret)?)
-    }
+        Ok(serde_json::to_value(ret)?)
+    })
 }
