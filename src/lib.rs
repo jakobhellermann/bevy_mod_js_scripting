@@ -1,4 +1,5 @@
 #![allow(clippy::let_and_return)] // This improves readability sometimes
+#![forbid(unsafe_code)]
 
 mod asset;
 mod runtime;
