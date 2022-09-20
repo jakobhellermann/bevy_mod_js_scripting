@@ -33,6 +33,18 @@ pub trait JsRuntimeApi: FromWorld {
 
     /// Run a script
     fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World);
+
+    /// Run during an exclusive system executed before [`CoreStage::First`] to allow the engine to
+    /// do any pre-frame preparation.
+    fn frame_start(&self, world: &mut World) {
+        let _ = world;
+    }
+
+    /// Run during an exclusive system executed after [`CoreStage::Last`] to allow the engine to
+    /// do any post-frame operations.
+    fn frame_end(&self, world: &mut World) {
+        let _ = world;
+    }
 }
 
 pub type OpMap = HashMap<&'static str, Arc<dyn JsRuntimeOp>>;

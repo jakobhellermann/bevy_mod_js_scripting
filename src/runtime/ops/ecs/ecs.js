@@ -31,7 +31,6 @@
         resource(componentId) {
             let resource = bevyModJsScriptingOpSync(
                 "ecs_world_get_resource",
-                this.rid,
                 componentId
             );
             return resource != null ? wrapValueRef(resource) : null;
@@ -50,12 +49,19 @@
     }
 
     const VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
+    const valueRefFinalizationRegistry = new FinalizationRegistry(ref => {
+        bevyModJsScriptingOpSync("ecs_value_ref_free", ref);
+    });
     function wrapValueRef(valueRef) {
         // leaf primitives
         if (typeof valueRef !== "object") {
             return valueRef;
         }
-        let target = () => {};
+
+        const refCopy = { key: valueRef.key, function: valueRef.function };
+        valueRefFinalizationRegistry.register(valueRef, refCopy);
+
+        let target = () => { };
         target.valueRef = valueRef;
         const proxy = new Proxy(target, {
             ownKeys: (target) => {
