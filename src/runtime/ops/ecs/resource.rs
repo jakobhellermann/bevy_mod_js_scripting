@@ -1,27 +1,28 @@
 use anyhow::Context;
+use bevy::prelude::default;
 use bevy_ecs_dynamic::reflect_value_ref::{EcsValueRef, ReflectValueRef};
+use type_map::TypeMap;
 
-use crate::runtime::types::{ComponentIdOrBevyType, JsValueRef};
-
-use super::WithValueRefs;
+use super::types::{ComponentIdOrBevyType, JsValueRef, JsValueRefs};
 
 pub fn ecs_world_get_resource(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
-    world.with_value_refs(|world, value_refs, _| {
-        let (component_id,): (ComponentIdOrBevyType,) =
-            serde_json::from_value(args).context("parse args")?;
-        let component_id = component_id.component_id(world)?;
+    let value_refs = op_state.entry::<JsValueRefs>().or_insert_with(default);
 
-        let value_ref = EcsValueRef::resource(world, component_id)?;
+    let (component_id,): (ComponentIdOrBevyType,) =
+        serde_json::from_value(args).context("parse args")?;
+    let component_id = component_id.component_id(world)?;
 
-        let value_ref = JsValueRef {
-            key: value_refs.insert(ReflectValueRef::ecs_ref(value_ref)),
-            function: None,
-        };
+    let value_ref = EcsValueRef::resource(world, component_id)?;
 
-        Ok(serde_json::to_value(value_ref)?)
-    })
+    let value_ref = JsValueRef {
+        key: value_refs.insert(ReflectValueRef::ecs_ref(value_ref)),
+        function: None,
+    };
+
+    Ok(serde_json::to_value(value_ref)?)
 }

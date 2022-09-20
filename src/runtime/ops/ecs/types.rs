@@ -1,18 +1,32 @@
 use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
-    prelude::{Entity, World},
+    prelude::*,
 };
-use bevy_ecs_dynamic::reflect_value_ref::{ReflectValueRefBorrow, ReflectValueRefBorrowMut};
+use bevy_ecs_dynamic::reflect_value_ref::{
+    ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
+};
 use bevy_reflect::{Reflect, TypeRegistryArc};
-use bevy_reflect_fns::{PassMode, ReflectArg};
+use bevy_reflect_fns::{PassMode, ReflectArg, ReflectFunction};
 use serde::{Deserialize, Serialize};
+use slotmap::SlotMap;
 
-use crate::{JsValueRefKey, ReflectFunctionKey};
+slotmap::new_key_type! {
+    pub struct JsValueRefKey;
+    pub struct ReflectFunctionKey;
+}
+
+/// Resource that stores [`ReflectValueRef`]s that are accessible to the JS runtime
+#[derive(Default, Deref, DerefMut)]
+pub struct JsValueRefs(SlotMap<JsValueRefKey, ReflectValueRef>);
+
+/// Resource that stores [`ReflectFunction`]s that are accessible to the JS runtime
+#[derive(Default, Deref, DerefMut)]
+pub struct JsReflectFunctions(SlotMap<ReflectFunctionKey, ReflectFunction>);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct JsValueRef {
-    pub(crate) key: JsValueRefKey,
-    pub(crate) function: Option<ReflectFunctionKey>,
+    pub key: JsValueRefKey,
+    pub function: Option<ReflectFunctionKey>,
 }
 
 #[derive(Serialize)]
