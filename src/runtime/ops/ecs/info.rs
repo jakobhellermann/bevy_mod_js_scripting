@@ -1,8 +1,10 @@
 use bevy::{ecs::component::ComponentId, prelude::Entity, utils::HashSet};
+use type_map::TypeMap;
 
-use crate::runtime::types::{JsComponentInfo, JsEntity};
+use super::types::{JsComponentInfo, JsEntity};
 
 pub fn ecs_world_to_string(
+    _op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,
@@ -11,6 +13,7 @@ pub fn ecs_world_to_string(
 }
 
 pub fn ecs_world_components(
+    _op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,
@@ -29,6 +32,7 @@ pub fn ecs_world_components(
 }
 
 pub fn ecs_world_resources(
+    _op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,
@@ -45,6 +49,7 @@ pub fn ecs_world_resources(
 }
 
 pub fn ecs_world_entities(
+    _op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,

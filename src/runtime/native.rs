@@ -1,14 +1,15 @@
-use std::{cell::RefCell, path::PathBuf, sync::Arc};
+use std::{cell::RefCell, path::PathBuf};
 
 use bevy::{prelude::*, utils::HashMap};
 use deno_core::{
     error::AnyError, v8, Extension, JsRuntime as DenoJsRuntime, OpState, ResourceId, RuntimeOptions,
 };
+use type_map::TypeMap;
 
 use super::JsRuntimeApi;
 use crate::{
     asset::JsScript,
-    runtime::{ops::get_core_ops, JsRuntimeConfig, JsRuntimeOp, ScriptInfo},
+    runtime::{JsRuntimeConfig, OpNames, Ops, ScriptInfo},
 };
 
 /// Resource stored in the Deno runtime to give access to the Bevy world
@@ -34,67 +35,14 @@ struct LoadedScriptData {
     path: PathBuf,
 }
 
-/// Contains mapping from op index to op name
-#[derive(Deref, DerefMut)]
-struct OpNames(HashMap<usize, &'static str>);
-
-/// List of [`JsRuntimeOp`]s installed for the [`JsRuntime`]
-type Ops = Vec<Arc<dyn JsRuntimeOp>>;
-
-struct InvalidOp;
-impl JsRuntimeOp for InvalidOp {
-    fn run(
-        &self,
-        _script_info: &ScriptInfo,
-        _world: &mut World,
-        _args: serde_json::Value,
-    ) -> anyhow::Result<serde_json::Value> {
-        anyhow::bail!(
-            "Invalid operation. You may have forgotten to register a custom JsRuntimeOp."
-        );
-    }
-}
-
 impl FromWorld for JsRuntime {
     fn from_world(world: &mut World) -> Self {
-        // Collect custom ops from the runtime config
-        let default_config = default();
+        // Collect ops from the runtime config
         let config = world
-            .get_non_send_resource::<JsRuntimeConfig>()
-            .unwrap_or(&default_config);
-        let custom_ops = &config.custom_ops;
-
-        // Collect core ops
-        let mut op_map = get_core_ops();
-
-        // Add custom ops to core ops and warn about conflicts
-        for (op_name, op) in custom_ops.into_iter() {
-            if op_map.insert(op_name, op.clone()).is_some() {
-                warn!(
-                    "Custom op name {op_name} conflicts with core op with \
-                    the same name. Custom op will take precedence."
-                );
-            }
-        }
-
-        // Collect ops into a vector while mapping the op names to it's index in the vector
-        let mut ops: Ops = Vec::with_capacity(op_map.len() + 1);
-        ops.push(Arc::new(InvalidOp)); // The first op is the invalid op called when an op is not found
-        let op_indexes = op_map
-            .into_iter()
-            .map(|(name, op)| {
-                ops.push(op);
-                (name, ops.len() - 1)
-            })
-            .collect::<HashMap<_, _>>();
-
-        // Create reverse lookup so we can get the op name from the index for debugging/logging purposes
-        let op_names = op_indexes
-            .clone()
-            .into_iter()
-            .map(|(k, v)| (v, k))
-            .collect();
-        let op_names = OpNames(op_names);
+            .remove_non_send_resource::<JsRuntimeConfig>()
+            .unwrap_or_default();
+        let custom_ops = config.custom_ops;
+        let (ops, op_indexes, op_names) = super::get_ops(custom_ops);
 
         // Create the Deno extension
         let ext = Extension::builder()
@@ -123,9 +71,10 @@ impl FromWorld for JsRuntime {
         let state = runtime.op_state();
         let mut state_borrow = state.borrow_mut();
 
-        // Insert the ops list and the op name lookup map into the Deno state
+        // Insert the ops list, the op name lookup map, and the op state into the Deno state
         state_borrow.put(ops);
         state_borrow.put(op_names);
+        state_borrow.put(TypeMap::default()); // op state
 
         // Insert the world resource
         let rid = state_borrow.resource_table.add(WorldResource {
@@ -313,25 +262,38 @@ fn op_bevy_mod_js_scripting(
     op_idx: usize,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, AnyError> {
-    let script_info = state.borrow::<ScriptInfo>();
-    let ops = state.borrow::<Ops>();
-    let op_names = state.borrow::<OpNames>();
-    let op_name = op_names.get(&op_idx);
+    with_state(state, |state, custom_op_state| {
+        let script_info = state.borrow::<ScriptInfo>();
+        let ops = state.borrow::<Ops>();
+        let op_names = state.borrow::<OpNames>();
+        let op_name = op_names.get(&op_idx);
 
-    trace!(%op_idx, ?op_name, ?args, "Executing JS Op");
+        trace!(%op_idx, ?op_name, ?args, "Executing JS Op");
 
-    if let Some(op) = ops.get(op_idx) {
-        let world = state
-            .resource_table
-            .get::<WorldResource>(WorldResource::RID)?;
-        let mut world = world.world.borrow_mut();
+        if let Some(op) = ops.get(op_idx) {
+            let world = state
+                .resource_table
+                .get::<WorldResource>(WorldResource::RID)?;
+            let mut world = world.world.borrow_mut();
 
-        return op
-            .run(script_info, &mut world, args)
-            .map_err(|e| anyhow::format_err!("Op Error: {:?}", e));
-    } else {
-        error!("Invalid op index");
-    }
+            return op
+                .run(custom_op_state, script_info, &mut world, args)
+                .map_err(|e| anyhow::format_err!("Op Error: {:?}", e));
+        } else {
+            error!("Invalid op index");
+        }
 
-    Ok(serde_json::Value::Null)
+        Ok(serde_json::Value::Null)
+    })
+}
+
+/// Essentially a [`World::resource_scope`] for [`OpState`]
+fn with_state<T: 'static, R, F: FnOnce(&mut OpState, &mut T) -> R>(state: &mut OpState, f: F) -> R {
+    let mut t = state.take::<T>();
+
+    let r = f(state, &mut t);
+
+    state.put(t);
+
+    r
 }

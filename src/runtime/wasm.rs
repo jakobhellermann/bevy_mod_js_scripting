@@ -1,50 +1,20 @@
-mod ecs;
-mod log;
-
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
-use bevy_reflect_fns::ReflectFunction;
-use serde::{Deserialize, Serialize};
-use slotmap::SlotMap;
+use serde::Serialize;
+use type_map::TypeMap;
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_mutex::{Mutex, MutexRef};
 
-use super::JsRuntimeApi;
+use super::{get_ops, JsRuntimeApi, JsRuntimeConfig, OpNames, Ops};
 use crate::asset::JsScript;
-use crate::runtime::types::JsEntity;
+use crate::runtime::ScriptInfo;
 
 /// Panic message when a mutex lock fails
 const LOCK_SHOULD_NOT_FAIL: &str =
     "Mutex lock should not fail because there should be no concurrent access";
-
-/// Error message thrown when a value ref refers to a value that doesn't exist.
-const REF_NOT_EXIST: &str =
-    "Value referenced does not exist. Each value ref is only valid for the duration of the script \
-    execution that it was created in. You may have attempted to use a value from a previous sciprt \
-    run.";
-
-const WORLD_RID: u32 = 0;
-
-slotmap::new_key_type! {
-    struct JsValueRefKey;
-    struct ReflectFunctionKey;
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct JsValueRef {
-    key: JsValueRefKey,
-    function: Option<ReflectFunctionKey>,
-}
-
-#[derive(Serialize)]
-struct JsQueryItem {
-    entity: JsEntity,
-    components: Vec<JsValueRef>,
-}
 
 #[wasm_bindgen]
 struct BevyModJsScripting {
@@ -58,17 +28,47 @@ impl BevyModJsScripting {
     }
 }
 
-#[derive(Default)]
-struct JsRuntimeState {
-    current_script_path: PathBuf,
-    world: World,
-    value_refs: SlotMap<JsValueRefKey, ReflectValueRef>,
-    reflect_functions: SlotMap<ReflectFunctionKey, ReflectFunction>,
+#[wasm_bindgen]
+impl BevyModJsScripting {
+    pub fn op_sync(&self, op_idx: usize, args: JsValue) -> Result<JsValue, JsValue> {
+        let JsRuntimeState {
+            script_info,
+            op_state,
+            ops,
+            op_names,
+            world,
+        } = &mut *self.state();
+        let op_name = op_names.get(&op_idx);
+        let args: serde_json::Value = serde_wasm_bindgen::from_value(args).to_js_error()?;
+        trace!(%op_idx, ?op_name, ?args, "Executing JS OP..");
+
+        if let Some(op) = ops.get(op_idx) {
+            let result = op
+                .run(op_state, script_info, world, args)
+                .map_err(|e| format!("Op Error: {e}"))
+                .to_js_error()?;
+
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            return Ok(result.serialize(serializer)?);
+        } else {
+            error!("Invalid op index");
+        }
+
+        Ok(JsValue::NULL)
+    }
 }
 
-#[wasm_bindgen(module = "/src/runtime/wasm/wasm_setup.js")]
+struct JsRuntimeState {
+    script_info: ScriptInfo,
+    op_state: TypeMap,
+    ops: Ops,
+    op_names: OpNames,
+    world: World,
+}
+
+#[wasm_bindgen(module = "/src/runtime/js/wasm_setup.js")]
 extern "C" {
-    fn setup_js_globals(bevy_mod_js_scripting: BevyModJsScripting);
+    fn setup_js_globals(bevy_mod_js_scripting: BevyModJsScripting, op_name_map: &str);
 }
 
 pub struct JsRuntime {
@@ -82,15 +82,38 @@ struct ScriptData {
 }
 
 impl FromWorld for JsRuntime {
-    fn from_world(_: &mut World) -> Self {
-        let state = Rc::new(Mutex::new(JsRuntimeState::default()));
+    fn from_world(world: &mut World) -> Self {
+        // Collect ops from the runtime config
+        let config = world
+            .remove_non_send_resource::<JsRuntimeConfig>()
+            .unwrap_or_default();
+        let custom_ops = config.custom_ops;
+        let (ops, op_indexes, op_names) = get_ops(custom_ops);
 
-        setup_js_globals(BevyModJsScripting {
-            state: state.clone(),
-        });
+        // Run initialization JS for each op
+        for (idx, op) in ops.iter().enumerate() {
+            if let Some(js) = op.js() {
+                js_sys::eval(js)
+                    .unwrap_or_else(|_| panic!("Error evaluating JS for op `{}`", op_names[&idx]));
+            }
+        }
 
-        js_sys::eval(include_str!("../js/ecs.js")).expect("Eval Init JS");
-        js_sys::eval(include_str!("../js/log.js")).expect("Eval Init JS");
+        let state = Rc::new(Mutex::new(JsRuntimeState {
+            ops,
+            op_names,
+            op_state: default(),
+            script_info: ScriptInfo { path: default() },
+            world: default(),
+        }));
+
+        // Run our initialization script, passing in our op name map
+        let op_map_json = serde_json::to_string(&op_indexes).unwrap();
+        setup_js_globals(
+            BevyModJsScripting {
+                state: state.clone(),
+            },
+            &op_map_json,
+        );
 
         Self {
             scripts: Default::default(),
@@ -147,9 +170,9 @@ impl JsRuntimeApi for JsRuntime {
 
             {
                 let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-                state.value_refs.clear();
-                state.reflect_functions.clear();
-                state.current_script_path = script.path.clone();
+                state.script_info = ScriptInfo {
+                    path: script.path.clone(),
+                };
             }
 
             let output: &js_sys::Object = output.dyn_ref().ok_or_else(|| {
@@ -196,7 +219,9 @@ impl JsRuntimeApi for JsRuntime {
         }
 
         let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
-        state.current_script_path = PathBuf::new();
+        state.script_info = ScriptInfo {
+            path: PathBuf::new(),
+        };
         std::mem::swap(&mut state.world, world);
     }
 }
@@ -213,19 +238,5 @@ impl<T, D: std::fmt::Display> ToJsErr<T> for Result<T, D> {
             Ok(ok) => Ok(ok),
             Err(e) => Err(JsValue::from_str(&e.to_string())),
         }
-    }
-}
-
-/// Helper trait to get a reflect value ref from the `value_refs` slotmap on [`JsRuntimeState`].
-trait GetReflectValueRef {
-    /// Casts a [`JsValue`] to a [`JsValueRef`] and loads its [`ReflectValueRef`].
-    fn get_reflect_value_ref(&self, value: JsValue) -> Result<&ReflectValueRef, JsValue>;
-}
-
-impl GetReflectValueRef for SlotMap<JsValueRefKey, ReflectValueRef> {
-    fn get_reflect_value_ref(&self, js_value: JsValue) -> Result<&ReflectValueRef, JsValue> {
-        let value_ref: JsValueRef = serde_wasm_bindgen::from_value(js_value)?;
-
-        self.get(value_ref.key).ok_or(REF_NOT_EXIST).to_js_error()
     }
 }

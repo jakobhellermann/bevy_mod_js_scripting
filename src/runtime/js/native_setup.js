@@ -1,4 +1,4 @@
-"use_strict";
+"use strict";
 
 ((window) => {
     // The placeholder below is replaced with an object mapping op names to op indexes

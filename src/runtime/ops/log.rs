@@ -5,6 +5,7 @@ use bevy::{
     utils::tracing::{event, span},
 };
 use serde::Deserialize;
+use type_map::TypeMap;
 
 use crate::runtime::{JsRuntimeOp, ScriptInfo};
 
@@ -19,6 +20,7 @@ struct OpLogArgs {
 impl JsRuntimeOp for OpLog {
     fn run(
         &self,
+        _op_state: &mut TypeMap,
         script_info: &ScriptInfo,
         _world: &mut World,
         args: serde_json::Value,
@@ -41,23 +43,28 @@ impl JsRuntimeOp for OpLog {
             .collect::<Vec<_>>()
             .join(" ");
 
-        if level == 0 {
-            let _span = span!(Level::TRACE, "script", path = ?script_info.path).entered();
-            event!(target: "js_runtime", Level::TRACE, "{text}");
-        } else if level == 1 {
-            let _span = span!(Level::DEBUG, "script", path = ?script_info.path).entered();
-            event!(target: "js_runtime", Level::DEBUG, "{text}");
-        } else if level == 2 {
-            let _span = span!(Level::INFO, "script", path = ?script_info.path).entered();
-            event!(target: "js_runtime", Level::INFO, "{text}");
-        } else if level == 3 {
-            let _span = span!(Level::WARN, "script", path = ?script_info.path).entered();
-            event!(target: "js_runtime", Level::WARN, "{text}");
-        } else if level == 4 {
-            let _span = span!(Level::ERROR, "script", path = ?script_info.path).entered();
-            event!(target: "js_runtime", Level::ERROR, "{text}");
-        } else {
-            anyhow::bail!("Invalid log level");
+        match level {
+            0 => {
+                let _span = span!(Level::TRACE, "script", path = ?script_info.path).entered();
+                event!(target: "js_runtime", Level::TRACE, "{text}");
+            }
+            1 => {
+                let _span = span!(Level::DEBUG, "script", path = ?script_info.path).entered();
+                event!(target: "js_runtime", Level::DEBUG, "{text}");
+            }
+            2 => {
+                let _span = span!(Level::INFO, "script", path = ?script_info.path).entered();
+                event!(target: "js_runtime", Level::INFO, "{text}");
+            }
+            3 => {
+                let _span = span!(Level::WARN, "script", path = ?script_info.path).entered();
+                event!(target: "js_runtime", Level::WARN, "{text}");
+            }
+            4 => {
+                let _span = span!(Level::ERROR, "script", path = ?script_info.path).entered();
+                event!(target: "js_runtime", Level::ERROR, "{text}");
+            }
+            _ => anyhow::bail!("Invalid log level"),
         }
 
         Ok(serde_json::Value::Null)

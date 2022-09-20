@@ -1,15 +1,18 @@
 use std::{any::TypeId, cell::RefCell, rc::Rc};
 
 use anyhow::{format_err, Context};
+use bevy::prelude::default;
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
+use type_map::TypeMap;
 
-use crate::runtime::types::{
-    JsValueRef, Primitive, ReflectArgIntermediate, ReflectArgIntermediateValue,
+use super::{
+    types::{
+        JsValueRef, JsValueRefs, Primitive, ReflectArgIntermediate, ReflectArgIntermediateValue,
+    },
+    WithValueRefs,
 };
-
-use super::WithValueRefs;
 
 macro_rules! try_downcast_leaf_get {
     ($value:ident for $($ty:ty $(,)?),*) => {
@@ -30,15 +33,16 @@ macro_rules! try_downcast_leaf_set {
 }
 
 pub fn ecs_value_ref_get(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
-    // Parse args
-    let (value_ref, path): (JsValueRef, String) =
-        serde_json::from_value(args).context("parse args")?;
+    op_state.with_refs_and_funcs(|_, value_refs, reflect_functions| {
+        // Parse args
+        let (value_ref, path): (JsValueRef, String) =
+            serde_json::from_value(args).context("parse args")?;
 
-    world.with_value_refs(|world, value_refs, reflect_functions| {
         // Load the type registry
         let type_registry = world.resource::<TypeRegistryArc>();
         let type_registry = type_registry.read();
@@ -94,6 +98,7 @@ pub fn ecs_value_ref_get(
 }
 
 pub fn ecs_value_ref_set(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
@@ -102,34 +107,35 @@ pub fn ecs_value_ref_set(
     let (value_ref, path, new_value): (JsValueRef, String, serde_json::Value) =
         serde_json::from_value(args).context("parse args")?;
 
-    world.with_value_refs(|world, value_refs, _| {
-        // Get the value ref from the JS arg
-        let value_ref = value_refs
-            .get(value_ref.key)
-            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
-            .clone();
+    let value_refs = op_state.entry::<JsValueRefs>().or_insert_with(default);
 
-        // Access the provided path on the value ref
-        let mut value_ref = value_ref.append_path(&path, world).unwrap();
+    // Get the value ref from the JS arg
+    let value_ref = value_refs
+        .get(value_ref.key)
+        .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+        .clone();
 
-        // Get the reflect value
-        let mut reflect = value_ref.get_mut(world).unwrap();
+    // Access the provided path on the value ref
+    let mut value_ref = value_ref.append_path(&path, world).unwrap();
 
-        // Try to store a primitive in the value
-        try_downcast_leaf_set!(reflect <- new_value for
-            u8, u16, u32, u64, u128, usize,
-            i8, i16, i32, i64, i128, isize,
-            String, char, bool, f32, f64
-        );
+    // Get the reflect value
+    let mut reflect = value_ref.get_mut(world).unwrap();
 
-        anyhow::bail!(
-            "could not set value reference: type `{}` is not a primitive type",
-            reflect.type_name(),
-        );
-    })
+    // Try to store a primitive in the value
+    try_downcast_leaf_set!(reflect <- new_value for
+        u8, u16, u32, u64, u128, usize,
+        i8, i16, i32, i64, i128, isize,
+        String, char, bool, f32, f64
+    );
+
+    anyhow::bail!(
+        "could not set value reference: type `{}` is not a primitive type",
+        reflect.type_name(),
+    );
 }
 
 pub fn ecs_value_ref_keys(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
@@ -137,36 +143,37 @@ pub fn ecs_value_ref_keys(
     // Parse args
     let (value_ref,): (JsValueRef,) = serde_json::from_value(args).context("parse args")?;
 
-    world.with_value_refs(|world, value_refs, _| {
-        // Get the value ref from the JS arg
-        let value_ref = value_refs
-            .get(value_ref.key)
-            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
-            .clone();
-        let reflect = value_ref.get(world).unwrap();
+    let value_refs = op_state.entry::<JsValueRefs>().or_insert_with(default);
 
-        // Enumerate the fields of the reflected object
-        let fields = match reflect.reflect_ref() {
-            ReflectRef::Struct(s) => (0..s.field_len())
-                .map(|i| {
-                    let name = s.name_at(i).ok_or_else(|| {
-                        format_err!("misbehaving Reflect impl on `{}`", s.type_name())
-                    })?;
-                    Ok(name.to_owned())
-                })
-                .collect::<anyhow::Result<_>>()?,
-            ReflectRef::Tuple(tuple) => (0..tuple.field_len()).map(|i| i.to_string()).collect(),
-            ReflectRef::TupleStruct(tuple_struct) => (0..tuple_struct.field_len())
-                .map(|i| i.to_string())
-                .collect(),
-            _ => Vec::new(),
-        };
+    // Get the value ref from the JS arg
+    let value_ref = value_refs
+        .get(value_ref.key)
+        .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+        .clone();
+    let reflect = value_ref.get(world).unwrap();
 
-        Ok(serde_json::to_value(fields)?)
-    })
+    // Enumerate the fields of the reflected object
+    let fields = match reflect.reflect_ref() {
+        ReflectRef::Struct(s) => (0..s.field_len())
+            .map(|i| {
+                let name = s.name_at(i).ok_or_else(|| {
+                    format_err!("misbehaving Reflect impl on `{}`", s.type_name())
+                })?;
+                Ok(name.to_owned())
+            })
+            .collect::<anyhow::Result<_>>()?,
+        ReflectRef::Tuple(tuple) => (0..tuple.field_len()).map(|i| i.to_string()).collect(),
+        ReflectRef::TupleStruct(tuple_struct) => (0..tuple_struct.field_len())
+            .map(|i| i.to_string())
+            .collect(),
+        _ => Vec::new(),
+    };
+
+    Ok(serde_json::to_value(fields)?)
 }
 
 pub fn ecs_value_ref_to_string(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
@@ -174,19 +181,20 @@ pub fn ecs_value_ref_to_string(
     // Parse args
     let (value_ref,): (JsValueRef,) = serde_json::from_value(args).context("parse args")?;
 
-    world.with_value_refs(|world, value_refs, _| {
-        // Get the value ref from the JS arg
-        let value_ref = value_refs
-            .get(value_ref.key)
-            .ok_or_else(|| format_err!("Value ref doesn't exist"))?
-            .clone();
-        let reflect = value_ref.get(world).unwrap();
+    let value_refs = op_state.entry::<JsValueRefs>().or_insert_with(default);
 
-        Ok(serde_json::Value::String(format!("{reflect:?}")))
-    })
+    // Get the value ref from the JS arg
+    let value_ref = value_refs
+        .get(value_ref.key)
+        .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+        .clone();
+    let reflect = value_ref.get(world).unwrap();
+
+    Ok(serde_json::Value::String(format!("{reflect:?}")))
 }
 
 pub fn ecs_value_ref_call(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
@@ -197,7 +205,7 @@ pub fn ecs_value_ref_call(
 
     let ref_not_exist_err = || format_err!("Ref does not exist");
 
-    world.with_value_refs(|world, value_refs, reflect_functions| {
+    op_state.with_refs_and_funcs(|_, value_refs, reflect_functions| {
         // Get the receiver's reflect_function
         let method_key = receiver
             .function
@@ -296,19 +304,20 @@ pub fn ecs_value_ref_call(
 }
 
 pub fn ecs_value_ref_free(
+    op_state: &mut TypeMap,
     _script_info: &crate::runtime::ScriptInfo,
-    world: &mut bevy::prelude::World,
+    _world: &mut bevy::prelude::World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
     let (value_ref,): (JsValueRef,) = serde_json::from_value(args).context("parse args")?;
 
-    world.with_value_refs(|_, value_refs, reflect_functions| {
+    op_state.with_refs_and_funcs(|_, value_refs, reflect_functions| {
         value_refs.remove(value_ref.key);
         if let Some(func) = value_ref.function {
             reflect_functions.remove(func);
         }
+    });
 
-        Ok(serde_json::Value::Null)
-    })
+    Ok(serde_json::Value::Null)
 }

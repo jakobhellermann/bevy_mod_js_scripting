@@ -1,10 +1,9 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use bevy::{prelude::*, utils::HashMap};
+use type_map::TypeMap;
 
 use crate::asset::JsScript;
-
-mod types;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm;
@@ -47,7 +46,69 @@ pub trait JsRuntimeApi: FromWorld {
     }
 }
 
-pub type OpMap = HashMap<&'static str, Arc<dyn JsRuntimeOp>>;
+// Hash map of op names to op implementation
+pub type OpMap = HashMap<&'static str, Box<dyn JsRuntimeOp>>;
+
+/// Contains mapping from op index to op name
+#[derive(Deref, DerefMut, Debug)]
+struct OpNames(HashMap<usize, &'static str>);
+
+/// Contains mapping from op name to op index
+pub type OpIndexes = HashMap<&'static str, usize>;
+
+/// List of [`JsRuntimeOp`]s installed for the [`JsRuntime`]
+pub type Ops = Vec<Box<dyn JsRuntimeOp>>;
+
+struct InvalidOp;
+impl JsRuntimeOp for InvalidOp {
+    fn run(
+        &self,
+        _op_state: &mut TypeMap,
+        _script_info: &ScriptInfo,
+        _world: &mut World,
+        _args: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        anyhow::bail!(
+            "Invalid operation. You may have forgotten to register a custom JsRuntimeOp."
+        );
+    }
+}
+
+fn get_ops(custom_ops: OpMap) -> (Ops, OpIndexes, OpNames) {
+    // Collect core ops
+    let mut op_map = ops::get_core_ops();
+
+    // Add custom ops to core ops and warn about conflicts
+    for (op_name, op) in custom_ops.into_iter() {
+        if op_map.insert(op_name, op).is_some() {
+            warn!(
+                "Custom op name {op_name} conflicts with core op with \
+                    the same name. Custom op will take precedence."
+            );
+        }
+    }
+
+    // Collect ops into a vector while mapping the op names to it's index in the vector
+    let mut ops: Ops = Vec::with_capacity(op_map.len() + 1);
+    ops.push(Box::new(InvalidOp)); // The first op is the invalid op called when an op is not found
+    let op_indexes = op_map
+        .into_iter()
+        .map(|(name, op)| {
+            ops.push(op);
+            (name, ops.len() - 1)
+        })
+        .collect::<HashMap<_, _>>();
+
+    // Create reverse lookup so we can get the op name from the index for debugging/logging purposes
+    let op_names = op_indexes
+        .clone()
+        .into_iter()
+        .map(|(k, v)| (v, k))
+        .collect();
+    let op_names = OpNames(op_names);
+
+    (ops, op_indexes, op_names)
+}
 
 /// Resource that may be inserted before adding the [`JsScriptingPlugin`][crate::JsScriptingPlugin]
 /// to configure the JS runtime.
@@ -74,12 +135,13 @@ pub trait JsRuntimeOp {
     /// The function called to execute the operation
     fn run(
         &self,
+        op_state: &mut TypeMap,
         script_info: &ScriptInfo,
         world: &mut World,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
         // Satisfy linter without changing argument names for the sake of the API docs
-        let (_, _, _) = (script_info, world, args);
+        let (_, _, _, _) = (op_state, script_info, world, args);
 
         // Ops may be inserted simply to add JS, so a default implementation of `run` is useful to
         // indicate that the op is not meant to be run.
@@ -87,15 +149,22 @@ pub trait JsRuntimeOp {
     }
 }
 
-impl<T: Fn(&ScriptInfo, &mut World, serde_json::Value) -> anyhow::Result<serde_json::Value>>
-    JsRuntimeOp for T
+impl<
+        T: Fn(
+            &mut TypeMap,
+            &ScriptInfo,
+            &mut World,
+            serde_json::Value,
+        ) -> anyhow::Result<serde_json::Value>,
+    > JsRuntimeOp for T
 {
     fn run(
         &self,
+        op_state: &mut TypeMap,
         script_info: &ScriptInfo,
         world: &mut World,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
-        self(script_info, world, args)
+        self(op_state, script_info, world, args)
     }
 }
