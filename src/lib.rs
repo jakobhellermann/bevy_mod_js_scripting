@@ -45,6 +45,29 @@ impl Plugin for JsScriptingPlugin {
                 load_scripts.after(Assets::<JsScript>::asset_event_system),
             );
 
+        // Call runtime `frame_start()` and `frame_end()` functions at the beginning and end of each frame.
+        app.add_system_to_stage(
+            CoreStage::First,
+            (|world: &mut World| {
+                let runtime = world.remove_non_send_resource::<JsRuntime>().unwrap();
+                runtime.frame_start(world);
+                world.insert_non_send_resource(runtime);
+            })
+            .exclusive_system()
+            .at_start(),
+        )
+        .add_system_to_stage(
+            CoreStage::Last,
+            (|world: &mut World| {
+                let runtime = world.remove_non_send_resource::<JsRuntime>().unwrap();
+                runtime.frame_end(world);
+                world.insert_non_send_resource(runtime);
+            })
+            .exclusive_system()
+            .at_end(),
+        );
+
+        // Run scripts assocated to each core stage
         for stage in &[
             CoreStage::First,
             CoreStage::PreUpdate,

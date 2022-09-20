@@ -31,6 +31,7 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
         Arc::new(value::ecs_value_ref_to_string),
     );
     ops.insert("ecs_value_ref_call", Arc::new(value::ecs_value_ref_call));
+    ops.insert("ecs_value_ref_free", Arc::new(value::ecs_value_ref_free));
 }
 
 /// Op used to provide the JS classes and globals used to interact with the other ECS ops

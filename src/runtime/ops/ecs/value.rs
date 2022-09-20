@@ -294,3 +294,21 @@ pub fn ecs_value_ref_call(
         Ok(serde_json::to_value(ret)?)
     })
 }
+
+pub fn ecs_value_ref_free(
+    _script_info: &crate::runtime::ScriptInfo,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (value_ref,): (JsValueRef,) = serde_json::from_value(args).context("parse args")?;
+
+    world.with_value_refs(|_, value_refs, reflect_functions| {
+        value_refs.remove(value_ref.key);
+        if let Some(func) = value_ref.function {
+            reflect_functions.remove(func);
+        }
+
+        Ok(serde_json::Value::Null)
+    })
+}

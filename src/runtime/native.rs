@@ -114,8 +114,8 @@ impl FromWorld for JsRuntime {
 
         // Run our initialization script, inserting the op name mapping into the script before running it
         let op_map_json = serde_json::to_string(&op_indexes).unwrap();
-        let init_script_src =
-            &include_str!("./js/native_setup.js").replace("__OP_NAME_MAP_PLACEHOLDER__", &op_map_json);
+        let init_script_src = &include_str!("./js/native_setup.js")
+            .replace("__OP_NAME_MAP_PLACEHOLDER__", &op_map_json);
         runtime
             .execute_script("Bevy Mod JS Scripting", init_script_src)
             .expect("Init script failed");
@@ -263,6 +263,17 @@ impl JsRuntimeApi for JsRuntime {
             };
 
             script_fn.call(scope, output.into(), &[]);
+        });
+    }
+
+    fn frame_end(&self, world: &mut World) {
+        let this: &mut JsRuntimeInner = &mut self.borrow_mut();
+
+        // Run the JS event loop
+        with_world(world, &mut this.runtime, |runtime| {
+            if let Err(e) = pollster::block_on(runtime.run_event_loop(true)) {
+                error!("Error running JS event loop: {}", e);
+            }
         });
     }
 }
