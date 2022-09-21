@@ -63,8 +63,7 @@ struct InvalidOp;
 impl JsRuntimeOp for InvalidOp {
     fn run(
         &self,
-        _op_state: &mut TypeMap,
-        _script_info: &ScriptInfo,
+        _context: OpContext,
         _world: &mut World,
         _args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
@@ -126,6 +125,10 @@ pub struct ScriptInfo {
     pub path: PathBuf,
 }
 
+pub struct OpContext<'a> {
+    pub op_state: &'a mut TypeMap,
+    pub script_info: &'a ScriptInfo,
+}
 pub trait JsRuntimeOp {
     /// Returns any extra JavaScript that should be executed when the runtime is initialized.
     fn js(&self) -> Option<&'static str> {
@@ -135,13 +138,12 @@ pub trait JsRuntimeOp {
     /// The function called to execute the operation
     fn run(
         &self,
-        op_state: &mut TypeMap,
-        script_info: &ScriptInfo,
+        context: OpContext<'_>,
         world: &mut World,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
         // Satisfy linter without changing argument names for the sake of the API docs
-        let (_, _, _, _) = (op_state, script_info, world, args);
+        let (_, _, _) = (context, world, args);
 
         // Ops may be inserted simply to add JS, so a default implementation of `run` is useful to
         // indicate that the op is not meant to be run.
@@ -149,22 +151,15 @@ pub trait JsRuntimeOp {
     }
 }
 
-impl<
-        T: Fn(
-            &mut TypeMap,
-            &ScriptInfo,
-            &mut World,
-            serde_json::Value,
-        ) -> anyhow::Result<serde_json::Value>,
-    > JsRuntimeOp for T
+impl<T: Fn(OpContext<'_>, &mut World, serde_json::Value) -> anyhow::Result<serde_json::Value>>
+    JsRuntimeOp for T
 {
     fn run(
         &self,
-        op_state: &mut TypeMap,
-        script_info: &ScriptInfo,
+        context: OpContext<'_>,
         world: &mut World,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
-        self(op_state, script_info, world, args)
+        self(context, world, args)
     }
 }

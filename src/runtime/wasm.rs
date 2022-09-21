@@ -10,7 +10,7 @@ use wasm_mutex::{Mutex, MutexRef};
 
 use super::{get_ops, JsRuntimeApi, JsRuntimeConfig, OpNames, Ops};
 use crate::asset::JsScript;
-use crate::runtime::ScriptInfo;
+use crate::runtime::{OpContext, ScriptInfo};
 
 /// Panic message when a mutex lock fails
 const LOCK_SHOULD_NOT_FAIL: &str =
@@ -43,8 +43,12 @@ impl BevyModJsScripting {
         trace!(%op_idx, ?op_name, ?args, "Executing JS OP..");
 
         if let Some(op) = ops.get(op_idx) {
+            let context = OpContext {
+                op_state,
+                script_info,
+            };
             let result = op
-                .run(op_state, script_info, world, args)
+                .run(context, world, args)
                 .map_err(|e| format!("Op Error: {e}"))
                 .to_js_error()?;
 
