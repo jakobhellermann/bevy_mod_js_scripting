@@ -84,11 +84,10 @@
                                 target.valueRef
                             );
                     default:
-                        const isInt = !isNaN(parseInt(p));
                         let valueRef = bevyModJsScriptingOpSync(
                             "ecs_value_ref_get",
                             target.valueRef,
-                            isInt ? `[${p}]` : "." + p
+                            p,
                         );
                         return wrapValueRef(valueRef);
                 }
@@ -97,7 +96,7 @@
                 bevyModJsScriptingOpSync(
                     "ecs_value_ref_set",
                     target.valueRef,
-                    "." + p,
+                    p,
                     value
                 );
             },
