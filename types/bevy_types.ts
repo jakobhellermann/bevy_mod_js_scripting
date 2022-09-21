@@ -530,6 +530,8 @@ type Vec3 = {
     x: f32,
     y: f32,
     z: f32,
+
+    lerp(other: Vec3, t: f32): Vec3;
 };
 const Vec3: BevyType<Vec3> = { typeName: "glam::f32::vec3::Vec3" };
 
