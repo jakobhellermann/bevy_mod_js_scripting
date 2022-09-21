@@ -9,7 +9,7 @@ use type_map::TypeMap;
 use super::JsRuntimeApi;
 use crate::{
     asset::JsScript,
-    runtime::{JsRuntimeConfig, OpNames, Ops, ScriptInfo},
+    runtime::{JsRuntimeConfig, OpContext, OpNames, Ops, ScriptInfo},
 };
 
 /// Resource stored in the Deno runtime to give access to the Bevy world
@@ -276,8 +276,12 @@ fn op_bevy_mod_js_scripting(
                 .get::<WorldResource>(WorldResource::RID)?;
             let mut world = world.world.borrow_mut();
 
+            let context = OpContext {
+                op_state: custom_op_state,
+                script_info,
+            };
             return op
-                .run(custom_op_state, script_info, &mut world, args)
+                .run(context, &mut world, args)
                 .map_err(|e| anyhow::format_err!("Op Error: {:?}", e));
         } else {
             error!("Invalid op index");

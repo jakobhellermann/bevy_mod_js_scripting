@@ -5,9 +5,8 @@ use bevy::{
     utils::tracing::{event, span},
 };
 use serde::Deserialize;
-use type_map::TypeMap;
 
-use crate::runtime::{JsRuntimeOp, ScriptInfo};
+use crate::runtime::{JsRuntimeOp, OpContext};
 
 pub struct OpLog;
 
@@ -20,11 +19,11 @@ struct OpLogArgs {
 impl JsRuntimeOp for OpLog {
     fn run(
         &self,
-        _op_state: &mut TypeMap,
-        script_info: &ScriptInfo,
+        context: OpContext,
         _world: &mut World,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
+        let script_info = context.script_info;
         let args: OpLogArgs = serde_json::from_value(args).context("Parse `log` op args")?;
         let level = args.level;
 
