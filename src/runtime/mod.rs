@@ -123,6 +123,7 @@ pub struct JsRuntimeConfig {
 /// Info about the currently executing script, exposed to [`JsRuntimeOp`]s.
 pub struct ScriptInfo {
     pub path: PathBuf,
+    pub handle: Handle<JsScript>,
 }
 
 pub struct OpContext<'a> {

@@ -118,6 +118,7 @@ impl JsRuntimeApi for JsRuntime {
             // Make script info available to the runtime
             this.runtime.op_state().borrow_mut().put(ScriptInfo {
                 path: script.path.clone(),
+                handle: handle.clone_weak(),
             });
 
             // Run the script and get it's output
@@ -163,6 +164,7 @@ impl JsRuntimeApi for JsRuntime {
         // Make script info available to the runtime
         runtime.op_state().borrow_mut().put(ScriptInfo {
             path: script.path.clone(),
+            handle: handle.clone_weak(),
         });
 
         with_world(world, runtime, |runtime| {
