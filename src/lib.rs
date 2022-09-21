@@ -9,7 +9,7 @@ use asset::JsScriptLoader;
 use bevy::{asset::AssetStage, prelude::*};
 
 pub use asset::JsScript;
-pub use runtime::{JsRuntimeConfig, JsRuntimeOp, OpMap, ScriptInfo};
+pub use runtime::{JsRuntimeConfig, JsRuntimeOp, OpContext, OpMap, ScriptInfo};
 pub use serde_json;
 pub use type_map;
 
