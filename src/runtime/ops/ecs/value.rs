@@ -1,7 +1,7 @@
 use std::{any::TypeId, cell::RefCell, rc::Rc};
 
 use anyhow::{format_err, Context};
-use bevy::prelude::default;
+use bevy::prelude::{default, World};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
@@ -61,11 +61,9 @@ pub fn ecs_value_ref_get(
 
             // If we found methods for this type
             if let Some(reflect_methods) = reflect_methods {
-                let method_name = path.trim_start_matches('.');
+                let method_name = &path;
                 // If the path we are accessing is a method on the type
-                if let Some(reflect_function) =
-                    reflect_methods.get(method_name.trim_start_matches('.'))
-                {
+                if let Some(reflect_function) = reflect_methods.get(method_name) {
                     // Return a method reference
                     let value = JsValueRef {
                         key: value_refs.insert(value_ref),
@@ -77,7 +75,7 @@ pub fn ecs_value_ref_get(
             }
 
             // If we didn't find a method, add the path to our value ref
-            let value_ref = value_ref.append_path(&path, world)?;
+            let value_ref = append_path(value_ref, path, world)?;
 
             // Try to downcast the value to a primitive
             {
@@ -121,7 +119,7 @@ pub fn ecs_value_ref_set(
         .clone();
 
     // Access the provided path on the value ref
-    let mut value_ref = value_ref.append_path(&path, world).unwrap();
+    let mut value_ref = append_path(value_ref, path, world)?;
 
     // Get the reflect value
     let mut reflect = value_ref.get_mut(world).unwrap();
@@ -331,4 +329,20 @@ pub fn ecs_value_ref_free(
         });
 
     Ok(serde_json::Value::Null)
+}
+
+fn append_path(
+    value_ref: ReflectValueRef,
+    path: String,
+    world: &World,
+) -> Result<ReflectValueRef, anyhow::Error> {
+    let value = value_ref.get(world)?;
+    let path = match value.reflect_ref() {
+        ReflectRef::Struct(_) | ReflectRef::TupleStruct(_) | ReflectRef::Tuple(_) => {
+            format!(".{path}")
+        }
+        ReflectRef::List(_) | ReflectRef::Array(_) => format!("[{path}]"),
+        ReflectRef::Map(_) | ReflectRef::Value(_) => path,
+    };
+    Ok(value_ref.append_path(&path, world)?)
 }
