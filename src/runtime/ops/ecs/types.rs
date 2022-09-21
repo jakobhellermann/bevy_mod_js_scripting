@@ -51,7 +51,7 @@ impl ComponentIdOrBevyType {
             ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(id)),
             ComponentIdOrBevyType::Type { type_name } => {
                 let type_registry = world.resource::<TypeRegistryArc>().read();
-                let registration = type_registry.get_with_name(&type_name).ok_or_else(|| {
+                let registration = type_registry.get_with_name(type_name).ok_or_else(|| {
                     anyhow::anyhow!("`{type_name}` does not exist in the type registry")
                 })?;
                 let type_id = registration.type_id();
