@@ -5,9 +5,13 @@ mod asset;
 mod runtime;
 mod transpile;
 
-pub use asset::JsScript;
 use asset::JsScriptLoader;
 use bevy::{asset::AssetStage, prelude::*};
+
+pub use asset::JsScript;
+pub use runtime::{JsRuntimeConfig, JsRuntimeOp, ScriptInfo, OpMap};
+pub use serde_json;
+pub use type_map;
 
 use runtime::{JsRuntime, JsRuntimeApi};
 
