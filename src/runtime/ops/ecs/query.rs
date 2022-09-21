@@ -4,7 +4,9 @@ use bevy_ecs_dynamic::reflect_value_ref::{query::EcsValueRefQuery, ReflectValueR
 
 use crate::runtime::OpContext;
 
-use super::types::{JsQueryItem, JsValueRef, JsValueRefs, QueryDescriptor};
+use super::types::{ComponentIdOrBevyType, JsQueryItem, JsValueRef, JsValueRefs};
+
+pub type QueryDescriptor = Vec<ComponentIdOrBevyType>;
 
 pub fn ecs_world_query(
     context: OpContext,
@@ -20,10 +22,9 @@ pub fn ecs_world_query(
         serde_json::from_value(args).context("Parse world query descriptor")?;
 
     let components: Vec<ComponentId> = descriptor
-        .components
         .iter()
-        .map(ComponentId::from)
-        .collect();
+        .map(|ty| ty.component_id(world))
+        .collect::<Result<_, _>>()?;
 
     let mut query = EcsValueRefQuery::new(world, &components);
     let results = query

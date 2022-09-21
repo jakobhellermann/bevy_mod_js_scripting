@@ -36,14 +36,13 @@
             return resource != null ? wrapValueRef(resource) : null;
         }
 
-        query(descriptor) {
+        query(...parameters) {
             return bevyModJsScriptingOpSync(
                 "ecs_world_query",
-                descriptor
+                parameters,
             ).map(({ entity, components }) => ({
                 entity,
                 components: components.map(wrapValueRef),
-                test: components,
             }));
         }
     }
