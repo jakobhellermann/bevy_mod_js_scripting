@@ -6,7 +6,7 @@ mod runtime;
 mod transpile;
 
 use asset::JsScriptLoader;
-use bevy::{asset::AssetStage, prelude::*};
+use bevy::{asset::AssetStage, prelude::*, utils::HashSet};
 
 pub use asset::JsScript;
 pub use runtime::{JsRuntimeConfig, JsRuntimeOp, OpContext, OpMap, ScriptInfo};
@@ -18,7 +18,7 @@ use runtime::{JsRuntime, JsRuntimeApi};
 pub struct JsScriptingPlugin;
 
 #[derive(Default, Deref, DerefMut)]
-pub struct ActiveScripts(pub Vec<Handle<JsScript>>);
+pub struct ActiveScripts(pub HashSet<Handle<JsScript>>);
 
 impl Plugin for JsScriptingPlugin {
     fn build(&self, app: &mut App) {
@@ -92,7 +92,7 @@ impl AddJsSystem for App {
         let handle = asset_server.load(path);
 
         let mut active = self.world.resource_mut::<ActiveScripts>();
-        active.push(handle);
+        active.insert(handle);
 
         self
     }
