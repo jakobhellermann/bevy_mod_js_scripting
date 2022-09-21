@@ -38,11 +38,6 @@ type QueryDescriptor = {
   components: ComponentId[];
 };
 
-type QueryItem = {
-  entity: Entity;
-  components: any[];
-};
-
 type Primitive = number | string | boolean;
 interface Value {
   [path: string | number]: Value | Primitive | undefined;
@@ -50,6 +45,18 @@ interface Value {
 
 type BevyType<T> = {
   typeName: string;
+};
+
+
+type ExtractBevyType<T> = T extends BevyType<infer U> ? U
+  : T extends ComponentId ? Value
+  : never;
+type MapQueryArgs<Q> = { [C in keyof Q]: ExtractBevyType<Q[C]> };
+
+type QueryParameter = BevyType<unknown> | ComponentId;
+type QueryItem<Q> = {
+  entity: Entity;
+  components: MapQueryArgs<Q>,
 };
 
 declare class World {
@@ -60,7 +67,7 @@ declare class World {
   resource(componentId: ComponentId): Value | null;
   resource<T>(type: BevyType<T>): T | null;
 
-  query(descriptor: QueryDescriptor): QueryItem[];
+  query<Q extends QueryParameter[]>(...query: Q): QueryItem<Q>[];
 }
 
 declare let world: World;

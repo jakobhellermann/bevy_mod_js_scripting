@@ -46,9 +46,9 @@ pub enum ComponentIdOrBevyType {
 }
 
 impl ComponentIdOrBevyType {
-    pub fn component_id(self, world: &World) -> Result<ComponentId, anyhow::Error> {
+    pub fn component_id(&self, world: &World) -> Result<ComponentId, anyhow::Error> {
         match self {
-            ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(&id)),
+            ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(id)),
             ComponentIdOrBevyType::Type { type_name } => {
                 let type_registry = world.resource::<TypeRegistryArc>().read();
                 let registration = type_registry.get_with_name(&type_name).ok_or_else(|| {
@@ -111,11 +111,6 @@ impl From<Entity> for JsEntity {
             generation: entity.generation(),
         }
     }
-}
-
-#[derive(Deserialize)]
-pub struct QueryDescriptor {
-    pub components: Vec<JsComponentId>,
 }
 
 // Value, from which a `ReflectArg` can be borrowed

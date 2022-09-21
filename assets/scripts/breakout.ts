@@ -1,12 +1,3 @@
-function filterComponentInfos(
-  infos: ComponentInfo[],
-  prefix: string
-): string[] {
-  return infos
-    .filter((info) => info.name.startsWith(prefix))
-    .map((info) => info.name.replace(prefix, ""));
-}
-
 let firstIteration = true;
 let i = 0;
 
@@ -14,6 +5,11 @@ type Scoreboard = {
   score: number;
 };
 const Scoreboard: BevyType<Scoreboard> = { typeName: "breakout::Scoreboard" };
+
+type Velocity = {
+  0: { x: number, y: number; },
+};
+const Velocity: BevyType<Velocity> = { typeName: "breakout::Velocity" };
 
 function run() {
   i++;
@@ -25,8 +21,11 @@ function run() {
 
   if (firstIteration) {
     firstIteration = false;
-    // info("Components: " + filterComponentInfos(world.components, "bevy_transform::"));
-    // info("Resources: " + filterComponentInfos(world.resources, "breakout::").join(", "));
+
+    for (const item of world.query(Velocity)) {
+      let [velocity] = item.components;
+      info("Velocity:", velocity[0].toString());
+    }
   }
 }
 
