@@ -30,6 +30,7 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
         Box::new(value::ecs_value_ref_to_string),
     );
     ops.insert("ecs_value_ref_call", Box::new(value::ecs_value_ref_call));
+    ops.insert("ecs_value_ref_eq", Box::new(value::ecs_value_ref_eq));
     ops.insert("ecs_value_ref_free", Box::new(value::ecs_value_ref_free));
 }
 

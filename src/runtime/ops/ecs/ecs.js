@@ -13,7 +13,7 @@
 
     class QueryItems extends Array {
         get(entity) {
-            const r = this.filter(x => x.entity == entity)[0];
+            const r = this.filter(x => x.entity.eq(entity))[0];
             return r && r.components;
         }
     }
@@ -48,7 +48,7 @@
                 "ecs_world_query",
                 parameters,
             ).map(({ entity, components }) => ({
-                entity,
+                entity: wrapValueRef(entity),
                 components: components.map(wrapValueRef),
             })));
         }
@@ -93,6 +93,13 @@
                             bevyModJsScriptingOpSync(
                                 "ecs_value_ref_to_string",
                                 target.valueRef
+                            );
+                    case "eq":
+                        return (otherRef) => 
+                            bevyModJsScriptingOpSync(
+                                "ecs_value_ref_eq", 
+                                target.valueRef,
+                                otherRef[VALUE_REF_GET_INNER].valueRef
                             );
                     default:
                         let valueRef = bevyModJsScriptingOpSync(
