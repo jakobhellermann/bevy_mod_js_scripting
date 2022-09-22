@@ -7,7 +7,7 @@ type Scoreboard = {
 const Scoreboard: BevyType<Scoreboard> = { typeName: "breakout::Scoreboard" };
 
 type Velocity = {
-  0: Vec3,
+  0: Vec3;
 };
 const Velocity: BevyType<Velocity> = { typeName: "breakout::Velocity" };
 
