@@ -186,9 +186,9 @@ impl JsRuntimeApi for JsRuntime {
 
             let fn_name = match stage {
                 CoreStage::First => "first",
-                CoreStage::PreUpdate => "pre_update",
+                CoreStage::PreUpdate => "preUpdate",
                 CoreStage::Update => "update",
-                CoreStage::PostUpdate => "post_update",
+                CoreStage::PostUpdate => "postUpdate",
                 CoreStage::Last => "last",
             };
             let fn_name_str = wasm_bindgen::intern(fn_name);
