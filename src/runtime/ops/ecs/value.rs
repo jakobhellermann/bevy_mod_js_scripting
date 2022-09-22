@@ -304,6 +304,41 @@ pub fn ecs_value_ref_call(
         })
 }
 
+pub fn ecs_value_ref_eq(
+    context: OpContext,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (ref1, ref2): (JsValueRef, JsValueRef) =
+        serde_json::from_value(args).context("parse args")?;
+
+    let value_refs = context
+        .op_state
+        .entry::<JsValueRefs>()
+        .or_insert_with(default);
+
+    // Get the value ref from the JS arg
+    let ref1 = value_refs
+        .get(ref1.key)
+        .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+        .clone();
+    let reflect1 = ref1.get(world).unwrap();
+
+    let ref2 = value_refs
+        .get(ref2.key)
+        .ok_or_else(|| format_err!("Value ref doesn't exist"))?
+        .clone();
+    let reflect2 = ref2.get(world).unwrap();
+
+    Ok(serde_json::Value::Bool(
+        reflect1
+            .as_reflect()
+            .reflect_partial_eq(reflect2.as_reflect())
+            .unwrap_or(false),
+    ))
+}
+
 pub fn ecs_value_ref_free(
     context: OpContext,
     _world: &mut bevy::prelude::World,
