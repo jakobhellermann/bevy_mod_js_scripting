@@ -1,8 +1,12 @@
-use bevy::{ecs::component::ComponentId, prelude::Entity, utils::HashSet};
+use bevy::{
+    ecs::component::ComponentId,
+    prelude::{default, Entity},
+    utils::HashSet,
+};
 
-use crate::runtime::OpContext;
+use crate::{runtime::OpContext, JsValueRef, JsValueRefs};
 
-use super::types::{JsComponentInfo, JsEntity};
+use super::types::JsComponentInfo;
 
 pub fn ecs_world_to_string(
     _context: OpContext,
@@ -47,14 +51,19 @@ pub fn ecs_world_resources(
 }
 
 pub fn ecs_world_entities(
-    _context: OpContext,
+    context: OpContext,
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
+    let value_refs = context
+        .op_state
+        .entry::<JsValueRefs>()
+        .or_insert_with(default);
+
     let entities = world
         .query::<Entity>()
         .iter(world)
-        .map(JsEntity::from)
+        .map(|e| JsValueRef::new_free(Box::new(e), value_refs))
         .collect::<Vec<_>>();
 
     Ok(serde_json::to_value(entities)?)

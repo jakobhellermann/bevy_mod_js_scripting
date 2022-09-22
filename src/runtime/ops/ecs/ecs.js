@@ -11,6 +11,13 @@
         generation;
     }
 
+    class QueryItems extends Array {
+        get(entity) {
+            const r = this.filter(x => x.entity == entity)[0];
+            return r && r.components;
+        }
+    }
+
     class World {
         toString() {
             return bevyModJsScriptingOpSync("ecs_world_to_string", this.rid);
@@ -37,21 +44,18 @@
         }
 
         query(...parameters) {
-            return bevyModJsScriptingOpSync(
+            return QueryItems.from(bevyModJsScriptingOpSync(
                 "ecs_world_query",
                 parameters,
             ).map(({ entity, components }) => ({
                 entity,
                 components: components.map(wrapValueRef),
-            }));
+            })));
         }
 
-        get(entity, ...components) {
-            const e = entity[VALUE_REF_GET_INNER]?.valueRef || entity;
-            return bevyModJsScriptingOpSync(
-                "ecs_world_get",
-                e, components
-            )?.map(wrapValueRef);
+        get(entity, component) {
+            const r = bevyModJsScriptingOpSync("ecs_world_get", entity, component);
+            return r && wrapValueRef(r);
         }
     }
 
