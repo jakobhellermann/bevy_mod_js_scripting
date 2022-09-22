@@ -182,9 +182,9 @@ impl JsRuntimeApi for JsRuntime {
             // Figure out which function to call on the exported object
             let fn_name_str = match stage {
                 CoreStage::First => "first",
-                CoreStage::PreUpdate => "pre_update",
+                CoreStage::PreUpdate => "preUpdate",
                 CoreStage::Update => "update",
-                CoreStage::PostUpdate => "post_update",
+                CoreStage::PostUpdate => "postUpdate",
                 CoreStage::Last => "last",
             };
 
