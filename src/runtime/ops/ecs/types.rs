@@ -97,7 +97,14 @@ impl From<&ComponentInfo> for JsComponentInfo {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum JsEntityOrValueRef {
+    JsEntity(JsEntity),
+    ValueRef(JsValueRef),
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct JsEntity {
     pub bits: u64,
     pub id: u32,
@@ -110,6 +117,11 @@ impl From<Entity> for JsEntity {
             id: entity.id(),
             generation: entity.generation(),
         }
+    }
+}
+impl From<JsEntity> for Entity {
+    fn from(val: JsEntity) -> Self {
+        Entity::from_bits(val.bits)
     }
 }
 

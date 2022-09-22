@@ -17,6 +17,7 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
     ops.insert("ecs_world_resources", Box::new(info::ecs_world_resources));
     ops.insert("ecs_world_entities", Box::new(info::ecs_world_entities));
     ops.insert("ecs_world_query", Box::new(query::ecs_world_query));
+    ops.insert("ecs_world_get", Box::new(query::ecs_world_get));
     ops.insert(
         "ecs_world_get_resource",
         Box::new(resource::ecs_world_get_resource),

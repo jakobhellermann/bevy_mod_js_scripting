@@ -45,9 +45,17 @@
                 components: components.map(wrapValueRef),
             }));
         }
+
+        get(entity, ...components) {
+            const e = entity[VALUE_REF_GET_INNER]?.valueRef || entity;
+            return bevyModJsScriptingOpSync(
+                "ecs_world_get",
+                e, components
+            )?.map(wrapValueRef);
+        }
     }
 
-    const VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
+    globalThis.VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
     const valueRefFinalizationRegistry = new FinalizationRegistry(ref => {
         bevyModJsScriptingOpSync("ecs_value_ref_free", ref);
     });
