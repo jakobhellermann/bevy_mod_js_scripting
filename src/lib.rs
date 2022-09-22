@@ -9,7 +9,13 @@ use asset::JsScriptLoader;
 use bevy::{asset::AssetStage, prelude::*, utils::HashSet};
 
 pub use asset::JsScript;
-pub use runtime::{JsRuntimeConfig, JsRuntimeOp, OpContext, OpMap, ScriptInfo};
+pub use bevy_ecs_dynamic;
+pub use runtime::{
+    ops::ecs::types::{
+        JsReflectFunctions, JsValueRef, JsValueRefKey, JsValueRefs, ReflectFunctionKey,
+    },
+    JsRuntimeConfig, JsRuntimeOp, OpContext, OpMap, ScriptInfo,
+};
 pub use serde_json;
 pub use type_map;
 

@@ -1,7 +1,7 @@
 use super::OpMap;
 use crate::JsRuntimeOp;
 
-mod ecs;
+pub mod ecs;
 mod log;
 
 pub fn get_core_ops() -> OpMap {
