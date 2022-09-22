@@ -51,7 +51,7 @@
     const valueRefFinalizationRegistry = new FinalizationRegistry(ref => {
         bevyModJsScriptingOpSync("ecs_value_ref_free", ref);
     });
-    function wrapValueRef(valueRef) {
+    globalThis.wrapValueRef = (valueRef) => {
         // leaf primitives
         if (typeof valueRef !== "object") {
             return valueRef;
