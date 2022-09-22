@@ -7,7 +7,7 @@ use self::types::{JsReflectFunctions, JsValueRefs};
 mod info;
 mod query;
 mod resource;
-mod types;
+pub mod types;
 mod value;
 
 pub fn insert_ecs_ops(ops: &mut OpMap) {

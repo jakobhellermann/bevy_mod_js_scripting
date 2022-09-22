@@ -15,7 +15,7 @@ mod native;
 #[cfg(not(target_arch = "wasm32"))]
 pub use native::*;
 
-mod ops;
+pub mod ops;
 
 /// The API implemented by different script runtimes.
 ///
