@@ -1,4 +1,4 @@
-use std::{any::TypeId, cell::RefCell, rc::Rc};
+use std::any::TypeId;
 
 use anyhow::{format_err, Context};
 use bevy::prelude::{default, World};
@@ -292,20 +292,13 @@ pub fn ecs_value_ref_call(
 
             // Finally call the method
             let ret = method.call(args.as_mut_slice()).unwrap();
-            // And package it's return value as a standalone reflect ref
-            let ret = Rc::new(RefCell::new(ret));
-            let ret = ReflectValueRef::free(ret);
 
             // Drop our intermediates and args so that we can use `value_refs` again, below.
             drop(args);
             drop(arg_intermediates);
             drop(receiver_intermediate);
 
-            // Return our resulting value ref
-            let ret = JsValueRef {
-                key: value_refs.insert(ret),
-                function: None,
-            };
+            let ret = JsValueRef::new_free(ret, value_refs);
 
             Ok(serde_json::to_value(ret)?)
         })

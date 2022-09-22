@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
     prelude::*,
@@ -29,9 +31,21 @@ pub struct JsValueRef {
     pub function: Option<ReflectFunctionKey>,
 }
 
+impl JsValueRef {
+    pub fn new_free(value: Box<dyn Reflect>, value_refs: &mut JsValueRefs) -> Self {
+        let value = Rc::new(RefCell::new(value));
+        let value = ReflectValueRef::free(value);
+
+        JsValueRef {
+            key: value_refs.insert(value),
+            function: None,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct JsQueryItem {
-    pub entity: JsEntity,
+    pub entity: JsValueRef,
     pub components: Vec<JsValueRef>,
 }
 
@@ -94,34 +108,6 @@ impl From<&ComponentInfo> for JsComponentInfo {
             name: info.name().to_string(),
             size: info.layout().size(),
         }
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum JsEntityOrValueRef {
-    JsEntity(JsEntity),
-    ValueRef(JsValueRef),
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct JsEntity {
-    pub bits: u64,
-    pub id: u32,
-    pub generation: u32,
-}
-impl From<Entity> for JsEntity {
-    fn from(entity: Entity) -> Self {
-        JsEntity {
-            bits: entity.to_bits(),
-            id: entity.id(),
-            generation: entity.generation(),
-        }
-    }
-}
-impl From<JsEntity> for Entity {
-    fn from(val: JsEntity) -> Self {
-        Entity::from_bits(val.bits)
     }
 }
 
