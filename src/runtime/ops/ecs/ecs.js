@@ -44,18 +44,47 @@
         }
 
         query(...parameters) {
-            return QueryItems.from(bevyModJsScriptingOpSync(
-                "ecs_world_query",
-                parameters,
-            ).map(({ entity, components }) => ({
-                entity: wrapValueRef(entity),
-                components: components.map(wrapValueRef),
-            })));
+            // Helper to collect and cache query results in the target
+            const collectedQuery = (target) => {
+                if (target.collected) {
+                    return target.collected;
+                } else {
+                    target.collected = QueryItems.from(bevyModJsScriptingOpSync(
+                        "ecs_world_query_collect",
+                        parameters,
+                    ).map(({ entity, components }) => ({
+                        entity: wrapValueRef(entity),
+                        components: components.map(wrapValueRef),
+                    })));
+
+                    return target.collected;
+                }
+            };
+
+            const target = { parameters, collected: null };
+            return new Proxy(target, {
+                get(target, propName) {
+                    switch (propName) {
+                        // Optimize the special case of accessing the components of a single entity.
+                        case "get":
+                            return (entity) => bevyModJsScriptingOpSync(
+                                "ecs_world_query_get",
+                                entity[VALUE_REF_GET_INNER].valueRef,
+                                target.parameters
+                            );
+                        // Default to collecting all the query results and returning the array prop.
+                        default:
+                            const collected = collectedQuery(target);
+                            const prop = collected[propName];
+                            return prop.bind ? prop.bind(collected) : prop;
+                    }
+                }
+            })
         }
 
         get(entity, component) {
-            const r = bevyModJsScriptingOpSync("ecs_world_get", entity, component);
-            return r && wrapValueRef(r);
+            const r = bevyModJsScriptingOpSync("ecs_world_query_get", entity, component);
+            return r[0] && wrapValueRef(r[0]);
         }
     }
 
@@ -95,9 +124,9 @@
                                 target.valueRef
                             );
                     case "eq":
-                        return (otherRef) => 
+                        return (otherRef) =>
                             bevyModJsScriptingOpSync(
-                                "ecs_value_ref_eq", 
+                                "ecs_value_ref_eq",
                                 target.valueRef,
                                 otherRef[VALUE_REF_GET_INNER].valueRef
                             );
