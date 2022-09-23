@@ -11,7 +11,8 @@ use super::types::{ComponentIdOrBevyType, JsQueryItem, JsValueRef, JsValueRefs};
 
 pub type QueryDescriptor = Vec<ComponentIdOrBevyType>;
 
-pub fn ecs_world_query(
+/// Queries world and collects results into a JS array
+pub fn ecs_world_query_collect(
     context: OpContext,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
@@ -36,10 +37,7 @@ pub fn ecs_world_query(
             let components = item
                 .items
                 .into_iter()
-                .map(|value| JsValueRef {
-                    key: value_refs.insert(ReflectValueRef::ecs_ref(value)),
-                    function: None,
-                })
+                .map(|value| JsValueRef::new_ecs(value, value_refs))
                 .collect();
 
             JsQueryItem {
@@ -52,7 +50,8 @@ pub fn ecs_world_query(
     Ok(serde_json::to_value(results)?)
 }
 
-pub fn ecs_world_get(
+/// Queries world and gets the components of a specific entity
+pub fn ecs_world_query_get(
     context: OpContext,
     world: &mut bevy::prelude::World,
     args: serde_json::Value,
@@ -62,7 +61,7 @@ pub fn ecs_world_get(
         .entry::<JsValueRefs>()
         .or_insert_with(default);
 
-    let (entity_value_ref, component): (JsValueRef, ComponentIdOrBevyType) =
+    let (entity_value_ref, descriptor): (JsValueRef, QueryDescriptor) =
         serde_json::from_value(args).context("component query")?;
     let entity: Entity = {
         let value_ref: &ReflectValueRef = value_refs
@@ -76,23 +75,21 @@ pub fn ecs_world_get(
             .ok_or_else(|| format_err!("Value passed not an entity"))?
     };
 
-    let component = component.component_id(world)?;
+    let components: Vec<ComponentId> = descriptor
+        .iter()
+        .map(|ty| ty.component_id(world))
+        .collect::<Result<_, _>>()?;
 
-    let mut query = EcsValueRefQuery::new(world, &[component]);
-    let results = query
-        .iter(world)
-        .filter(|x| x.entity == entity)
-        .map(|item| {
-            item.items
+    let mut query = EcsValueRefQuery::new(world, &components);
+    let result = query
+        .get(world, entity)
+        .map(|components| {
+            components
                 .into_iter()
-                .map(|value| JsValueRef {
-                    key: value_refs.insert(ReflectValueRef::ecs_ref(value)),
-                    function: None,
-                })
-                .next()
+                .map(|value| JsValueRef::new_ecs(value, value_refs))
+                .collect::<Vec<_>>()
         })
-        .next()
-        .flatten();
+        .ok();
 
-    Ok(serde_json::to_value(results)?)
+    Ok(serde_json::to_value(result)?)
 }

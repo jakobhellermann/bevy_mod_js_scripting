@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_ecs_dynamic::reflect_value_ref::{
-    ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
+    EcsValueRef, ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectFunction};
@@ -38,6 +38,13 @@ impl JsValueRef {
 
         JsValueRef {
             key: value_refs.insert(value),
+            function: None,
+        }
+    }
+
+    pub fn new_ecs(value: EcsValueRef, value_refs: &mut JsValueRefs) -> Self {
+        JsValueRef {
+            key: value_refs.insert(ReflectValueRef::ecs_ref(value)),
             function: None,
         }
     }
