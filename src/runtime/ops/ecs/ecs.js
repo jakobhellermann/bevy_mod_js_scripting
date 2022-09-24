@@ -67,11 +67,14 @@
                     switch (propName) {
                         // Optimize the special case of accessing the components of a single entity.
                         case "get":
-                            return (entity) => bevyModJsScriptingOpSync(
-                                "ecs_world_query_get",
-                                entity[VALUE_REF_GET_INNER].valueRef,
-                                target.parameters
-                            );
+                            return (entity) => {
+                                let ret = bevyModJsScriptingOpSync(
+                                    "ecs_world_query_get",
+                                    unwrapValueRef(entity),
+                                    target.parameters
+                                );
+                                return ret ? ret.map(wrapValueRef) : undefined;
+                            };
                         // Default to collecting all the query results and returning the array prop.
                         default:
                             const collected = collectedQuery(target);
@@ -83,18 +86,28 @@
         }
 
         get(entity, component) {
-            const r = bevyModJsScriptingOpSync("ecs_world_query_get", entity, component);
+            const r = bevyModJsScriptingOpSync("ecs_world_query_get", unwrapValueRef(entity), [component]);
             return r[0] && wrapValueRef(r[0]);
         }
     }
 
-    globalThis.VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
     const valueRefFinalizationRegistry = new FinalizationRegistry(ref => {
         bevyModJsScriptingOpSync("ecs_value_ref_free", ref);
     });
+    const VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
+
+    // tries to unwrap the inner value ref, otherwise returns the value unchanged
+    globalThis.unwrapValueRef = (valueRefProxy) => {
+        if (valueRefProxy === null || valueRefProxy === undefined) return valueRefProxy;
+        const inner = valueRefProxy[VALUE_REF_GET_INNER]
+        return inner ? inner : valueRefProxy;
+    }
+
+    // keep primitives, null and undefined as is, otherwise wraps the object
+    // in a proxy
     globalThis.wrapValueRef = (valueRef) => {
         // leaf primitives
-        if (typeof valueRef !== "object") {
+        if (typeof valueRef !== "object" || valueRef === null || valueRef === undefined) {
             return valueRef;
         }
 
@@ -116,7 +129,7 @@
             get: (target, p, receiver) => {
                 switch (p) {
                     case VALUE_REF_GET_INNER:
-                        return target;
+                        return target.valueRef;
                     case "toString":
                         return () =>
                             bevyModJsScriptingOpSync(
@@ -128,7 +141,7 @@
                             bevyModJsScriptingOpSync(
                                 "ecs_value_ref_eq",
                                 target.valueRef,
-                                otherRef[VALUE_REF_GET_INNER].valueRef
+                                unwrapValueRef(otherRef),
                             );
                     default:
                         let valueRef = bevyModJsScriptingOpSync(
@@ -152,8 +165,7 @@
                     "ecs_value_ref_call",
                     target.valueRef,
                     args.map((arg) => {
-                        let valueRef = arg[VALUE_REF_GET_INNER]?.valueRef;
-                        return valueRef !== undefined ? valueRef : arg;
+                        return unwrapValueRef(arg);
                     })
                 );
                 return wrapValueRef(ret);
