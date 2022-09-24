@@ -69,10 +69,10 @@ declare class World {
   resource<T>(type: BevyType<T>): T | null;
 
   query<Q extends QueryParameter[]>(...query: Q): QueryItems<Q>;
-  get<Q extends QueryParameter[]>(
+  get<T>(
     entity: Entity,
-    ...components: Q
-  ): MapQueryArgs<Q>;
+    component: BevyType<T>
+  ): T | undefined;
 }
 
 declare let world: World;
