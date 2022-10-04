@@ -187,11 +187,6 @@
         default(type) {
             return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName));
         },
-
-        // Instantiates a new instance of a bevy type with the given fields
-        create(arg) {
-            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_new", arg));
-        }
     }
 
     const world = new World();
