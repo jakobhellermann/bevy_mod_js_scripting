@@ -34,9 +34,19 @@ function run() {
       world.insert(item.entity, Value.create(Ball));
 
       // Create a velocity component
+      //
+      // We can optionally include a patch to the default value of velocity as the second argument
+      // to create().
       let vel = Value.create(Velocity, [
         {
           x: -200,
+        },
+      ]);
+
+      // For demonstration purposes, we can also patch values after they have been created. This
+      // works on any ECS component, not just ones created with Value.create().
+      Value.patch(vel, [
+        {
           y: 200,
         },
       ]);
