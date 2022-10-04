@@ -23,8 +23,6 @@ declare interface BevyScript {
 declare type RawValueRef = unknown;
 
 declare interface ValueGlobal {
-  unwrapValueRef(v: Value): RawValueRef;
-  wrapValueRef(v: RawValueRef): Value;
   default<T>(t: BevyType<T>): T;
 }
 
