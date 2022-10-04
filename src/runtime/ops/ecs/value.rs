@@ -1,9 +1,9 @@
 use std::any::TypeId;
 
-use anyhow::{format_err, Context};
+use anyhow::{bail, format_err, Context};
 use bevy::prelude::{default, ReflectDefault, World};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
-use bevy_reflect::{ReflectRef, TypeRegistryArc};
+use bevy_reflect::{Reflect, ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
 
 use crate::runtime::OpContext;
@@ -17,20 +17,139 @@ use super::{
 
 macro_rules! try_downcast_leaf_get {
     ($value:ident for $($ty:ty $(,)?),*) => {
-        $(if let Some(value) = $value.downcast_ref::<$ty>() {
-            let value = serde_json::to_value(value)?;
-            return Ok(value);
-        })*
+        (|| {
+            $(if let Some(value) = $value.downcast_ref::<$ty>() {
+                let value = serde_json::to_value(value)?;
+                return Ok(Some(value));
+            })*
+
+            Ok::<_, anyhow::Error>(None)
+        })()
     };
 }
 
 macro_rules! try_downcast_leaf_set {
     ($value:ident <- $new_value:ident for $($ty:ty $(,)?),*) => {
-        $(if let Some(value) = $value.downcast_mut::<$ty>() {
-            *value = serde_json::from_value($new_value)?;
-            return Ok(serde_json::Value::Null);
-        })*
+        (|| {
+            $(if let Some(value) = $value.downcast_mut::<$ty>() {
+                *value = serde_json::from_value($new_value)?;
+                return Ok(());
+            })*
+
+            Ok::<(), anyhow::Error>(())
+        })()
     };
+}
+
+/// Converts a JSON value to a dynamic reflect struct or list
+pub fn patch_reflect_with_json(
+    value: &mut dyn Reflect,
+    patch: serde_json::Value,
+) -> anyhow::Result<()> {
+    match patch {
+        serde_json::Value::Null => {
+            bail!("Can't patch values with null");
+        }
+        patch @ (serde_json::Value::Bool(_)
+        | serde_json::Value::Number(_)
+        | serde_json::Value::String(_)) => {
+            try_downcast_leaf_set!(value <- patch for
+                u8, u16, u32, u64, u128, usize,
+                i8, i16, i32, i64, i128, isize,
+                String, char, bool, f32, f64
+            )?;
+        }
+        serde_json::Value::Array(array) => match value.reflect_mut() {
+            bevy_reflect::ReflectMut::Struct(_) => todo!(),
+            bevy_reflect::ReflectMut::List(target) => {
+                let target_len = target.len();
+                let patch_len = array.len();
+                if target_len < patch_len {
+                    bail!("Cannot patch list with {target_len} elements with patch with {patch_len} elements");
+                }
+
+                for (i, patch) in array.into_iter().enumerate() {
+                    let target = target.get_mut(i).unwrap();
+                    patch_reflect_with_json(target, patch)?;
+                }
+            }
+            bevy_reflect::ReflectMut::Tuple(target) => {
+                let target_len = target.field_len();
+                let patch_len = array.len();
+                if target_len != patch_len {
+                    bail!("Cannot patch tuple with {target_len} elements with patch with {patch_len} elements");
+                }
+
+                for (i, patch) in array.into_iter().enumerate() {
+                    let target = target.field_mut(i).unwrap();
+                    patch_reflect_with_json(target, patch)?;
+                }
+            }
+            bevy_reflect::ReflectMut::TupleStruct(target) => {
+                let target_len = target.field_len();
+                let patch_len = array.len();
+                if target_len != patch_len {
+                    bail!("Cannot patch tuple with {target_len} elements with patch with {patch_len} elements");
+                }
+
+                for (i, patch) in array.into_iter().enumerate() {
+                    let target = target.field_mut(i).unwrap();
+                    patch_reflect_with_json(target, patch)?;
+                }
+            }
+            bevy_reflect::ReflectMut::Array(target) => {
+                let target_len = target.len();
+                let patch_len = array.len();
+                if target_len != patch_len {
+                    bail!("Cannot patch array with {target_len} elements with patch with {patch_len} elements");
+                }
+
+                for (i, patch) in array.into_iter().enumerate() {
+                    let target = target.get_mut(i).unwrap();
+                    patch_reflect_with_json(target, patch)?;
+                }
+            }
+            bevy_reflect::ReflectMut::Map(_) => bail!("Cannot patch map with array"),
+            bevy_reflect::ReflectMut::Value(_) => bail!("Cannot patch primitive value with array"),
+        },
+        serde_json::Value::Object(map) => match value.reflect_mut() {
+            bevy_reflect::ReflectMut::Struct(target) => {
+                for (key, value) in map {
+                    let field = target.field_mut(&key).ok_or_else(|| {
+                        format_err!("Field `{key}` in patch does not exist on target struct")
+                    })?;
+
+                    patch_reflect_with_json(field, value)?;
+                }
+            }
+            bevy_reflect::ReflectMut::Map(_) => {
+                bail!("Patching maps are not yet supported");
+                // TODO: The code would be something like below, but we have to figure out how to
+                // insert new values of the right type, or find out that it isn't actually a concern.
+
+                // for (key, value) in map {
+                //     let key = Box::new(key) as Box<dyn Reflect>;
+                //     if let Some(field) = target.get_mut(key.as_reflect()) {
+                //         patch_reflect_with_json(field, value)?;
+                //     } else {
+                //         target.insert_boxed(
+                //             key,
+                //             /* How do we know what the expected value type for the map is? */
+                //         );
+                //     }
+                // }
+            }
+            bevy_reflect::ReflectMut::Tuple(_) | bevy_reflect::ReflectMut::TupleStruct(_) => {
+                bail!("Cannot patch tuple struct with object")
+            }
+            bevy_reflect::ReflectMut::List(_) | bevy_reflect::ReflectMut::Array(_) => {
+                bail!("Cannot patch list or array with object")
+            }
+            bevy_reflect::ReflectMut::Value(_) => bail!("Cannot patch primitive value with object"),
+        },
+    }
+
+    Ok(())
 }
 
 pub fn ecs_value_ref_get(
@@ -81,11 +200,15 @@ pub fn ecs_value_ref_get(
             {
                 let value = value_ref.get(world)?;
 
-                try_downcast_leaf_get!(value for
+                let value = try_downcast_leaf_get!(value for
                     u8, u16, u32, u64, u128, usize,
                     i8, i16, i32, i64, i128, isize,
                     String, char, bool, f32, f64
                 );
+
+                if let Some(value) = value? {
+                    return Ok(value);
+                }
             }
 
             // If not a primitive, just return a new value ref
@@ -129,12 +252,14 @@ pub fn ecs_value_ref_set(
         u8, u16, u32, u64, u128, usize,
         i8, i16, i32, i64, i128, isize,
         String, char, bool, f32, f64
-    );
-
-    anyhow::bail!(
-        "could not set value reference: type `{}` is not a primitive type",
-        reflect.type_name(),
-    );
+    )
+    .map(|_| serde_json::Value::Null)
+    .map_err(|e| {
+        format_err!(
+            "could not set value reference: type `{typename}` is not a primitive type: {e}",
+            typename = reflect.type_name(),
+        )
+    })
 }
 
 pub fn ecs_value_ref_keys(
@@ -206,7 +331,8 @@ pub fn ecs_value_ref_default(
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
-    let (type_name,): (String,) = serde_json::from_value(args).context("parse args")?;
+    let (type_name, patch): (String, Option<serde_json::Value>) =
+        serde_json::from_value(args).context("parse args")?;
 
     let value_refs = context
         .op_state
@@ -226,7 +352,12 @@ pub fn ecs_value_ref_default(
     let reflect_default = type_registration
         .data::<ReflectDefault>()
         .ok_or_else(|| format_err!("Type does not have ReflectDefault: {type_name}"))?;
-    let value = reflect_default.default();
+    let mut value = reflect_default.default();
+
+    // Patch the default value if a patch is provided
+    if let Some(patch) = patch {
+        patch_reflect_with_json(value.as_reflect_mut(), patch)?;
+    }
 
     // Return the value ref to the new object
     let value_ref = JsValueRef::new_free(value, value_refs);
