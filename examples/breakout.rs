@@ -22,8 +22,6 @@ const PADDLE_PADDING: f32 = 10.0;
 // We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
 const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 1.0);
 const BALL_SIZE: Vec3 = Vec3::new(30.0, 30.0, 0.0);
-const BALL_SPEED: f32 = 400.0;
-const INITIAL_BALL_DIRECTION: Vec2 = Vec2::new(0.5, -0.5);
 
 const WALL_THICKNESS: f32 = 10.0;
 // x coordinates
@@ -75,6 +73,7 @@ fn main() {
         .add_system(bevy::window::close_on_esc)
         .add_js_system("scripts/breakout.ts")
         .register_type::<Ball>()
+        .register_type::<NotABallYet>()
         .register_type::<Paddle>()
         .register_type::<Velocity>()
         .register_type::<Collider>()
@@ -87,10 +86,15 @@ fn main() {
 #[derive(Reflect, Component)]
 struct Paddle;
 
-#[derive(Reflect, Component)]
+#[derive(Reflect, Component, Default)]
+#[reflect(Default, Component)]
 struct Ball;
 
-#[derive(Reflect, Component, Deref, DerefMut)]
+#[derive(Reflect, Component)]
+struct NotABallYet;
+
+#[derive(Reflect, Component, Deref, DerefMut, Default)]
+#[reflect(Component, Default)]
 struct Velocity(Vec2);
 
 #[derive(Reflect, Component)]
@@ -209,7 +213,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Ball
     commands
         .spawn()
-        .insert(Ball)
+        .insert(NotABallYet)
         .insert_bundle(SpriteBundle {
             transform: Transform {
                 scale: BALL_SIZE,
@@ -221,8 +225,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        })
-        .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
+        });
 
     // Scoreboard
     commands.spawn_bundle(
@@ -344,7 +347,7 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
+fn apply_velocity(mut query: Query<(&mut Transform, &Velocity), With<Ball>>) {
     for (mut transform, velocity) in &mut query {
         transform.translation.x += velocity.x * TIME_STEP;
         transform.translation.y += velocity.y * TIME_STEP;
@@ -363,7 +366,11 @@ fn check_for_collisions(
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
-    let (mut ball_velocity, ball_transform) = ball_query.single_mut();
+    let (mut ball_velocity, ball_transform) = if let Ok(ball) = ball_query.get_single_mut() {
+        ball
+    } else {
+        return;
+    };
     let ball_size = ball_transform.scale.truncate();
 
     // check collision with walls

@@ -40,7 +40,7 @@
                 "ecs_world_get_resource",
                 componentId
             );
-            return resource != null ? wrapValueRef(resource) : null;
+            return resource != null ? Value.wrapValueRef(resource) : null;
         }
 
         query(...parameters) {
@@ -53,8 +53,8 @@
                         "ecs_world_query_collect",
                         parameters,
                     ).map(({ entity, components }) => ({
-                        entity: wrapValueRef(entity),
-                        components: components.map(wrapValueRef),
+                        entity: Value.wrapValueRef(entity),
+                        components: components.map(Value.wrapValueRef),
                     })));
 
                     return target.collected;
@@ -70,10 +70,10 @@
                             return (entity) => {
                                 let ret = bevyModJsScriptingOpSync(
                                     "ecs_world_query_get",
-                                    unwrapValueRef(entity),
+                                    Value.unwrapValueRef(entity),
                                     target.parameters
                                 );
-                                return ret ? ret.map(wrapValueRef) : undefined;
+                                return ret ? ret.map(Value.wrapValueRef) : undefined;
                             };
                         // Default to collecting all the query results and returning the array prop.
                         default:
@@ -86,8 +86,16 @@
         }
 
         get(entity, component) {
-            const r = bevyModJsScriptingOpSync("ecs_world_query_get", unwrapValueRef(entity), [component]);
-            return r[0] && wrapValueRef(r[0]);
+            const r = bevyModJsScriptingOpSync("ecs_world_query_get", Value.unwrapValueRef(entity), [component]);
+            return r[0] && Value.wrapValueRef(r[0]);
+        }
+
+        insert(entity, component) {
+            bevyModJsScriptingOpSync(
+                "ecs_component_insert",
+                Value.unwrapValueRef(entity),
+                Value.unwrapValueRef(component)
+            );
         }
     }
 
@@ -96,82 +104,94 @@
     });
     const VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
 
-    // tries to unwrap the inner value ref, otherwise returns the value unchanged
-    globalThis.unwrapValueRef = (valueRefProxy) => {
-        if (valueRefProxy === null || valueRefProxy === undefined) return valueRefProxy;
-        const inner = valueRefProxy[VALUE_REF_GET_INNER]
-        return inner ? inner : valueRefProxy;
-    }
+    globalThis.Value = {
+        // tries to unwrap the inner value ref, otherwise returns the value unchanged
+        unwrapValueRef(valueRefProxy) {
+            if (valueRefProxy === null || valueRefProxy === undefined) return valueRefProxy;
+            const inner = valueRefProxy[VALUE_REF_GET_INNER]
+            return inner ? inner : valueRefProxy;
+        },
 
-    // keep primitives, null and undefined as is, otherwise wraps the object
-    // in a proxy
-    globalThis.wrapValueRef = (valueRef) => {
-        // leaf primitives
-        if (typeof valueRef !== "object" || valueRef === null || valueRef === undefined) {
-            return valueRef;
-        }
+        // keep primitives, null and undefined as is, otherwise wraps the object
+        // in a proxy
+        wrapValueRef(valueRef) {
+            // leaf primitives
+            if (typeof valueRef !== "object" || valueRef === null || valueRef === undefined) {
+                return valueRef;
+            }
 
-        const refCopy = { key: valueRef.key, function: valueRef.function };
-        valueRefFinalizationRegistry.register(valueRef, refCopy);
+            const refCopy = { key: valueRef.key, function: valueRef.function };
+            valueRefFinalizationRegistry.register(valueRef, refCopy);
 
-        let target = () => { };
-        target.valueRef = valueRef;
-        const proxy = new Proxy(target, {
-            ownKeys: (target) => {
-                return [
-                    ...bevyModJsScriptingOpSync(
-                        "ecs_value_ref_keys",
-                        target.valueRef
-                    ),
-                    VALUE_REF_GET_INNER,
-                ];
-            },
-            get: (target, p, receiver) => {
-                switch (p) {
-                    case VALUE_REF_GET_INNER:
-                        return target.valueRef;
-                    case "toString":
-                        return () =>
-                            bevyModJsScriptingOpSync(
-                                "ecs_value_ref_to_string",
-                                target.valueRef
-                            );
-                    case "eq":
-                        return (otherRef) =>
-                            bevyModJsScriptingOpSync(
-                                "ecs_value_ref_eq",
+            let target = () => { };
+            target.valueRef = valueRef;
+            const proxy = new Proxy(target, {
+                ownKeys: (target) => {
+                    return [
+                        ...bevyModJsScriptingOpSync(
+                            "ecs_value_ref_keys",
+                            target.valueRef
+                        ),
+                        VALUE_REF_GET_INNER,
+                    ];
+                },
+                get: (target, p, receiver) => {
+                    switch (p) {
+                        case VALUE_REF_GET_INNER:
+                            return target.valueRef;
+                        case "toString":
+                            return () =>
+                                bevyModJsScriptingOpSync(
+                                    "ecs_value_ref_to_string",
+                                    target.valueRef
+                                );
+                        case "eq":
+                            return (otherRef) =>
+                                bevyModJsScriptingOpSync(
+                                    "ecs_value_ref_eq",
+                                    target.valueRef,
+                                    Value.unwrapValueRef(otherRef),
+                                );
+                        default:
+                            let valueRef = bevyModJsScriptingOpSync(
+                                "ecs_value_ref_get",
                                 target.valueRef,
-                                unwrapValueRef(otherRef),
+                                p,
                             );
-                    default:
-                        let valueRef = bevyModJsScriptingOpSync(
-                            "ecs_value_ref_get",
-                            target.valueRef,
-                            p,
-                        );
-                        return wrapValueRef(valueRef);
-                }
-            },
-            set: (target, p, value) => {
-                bevyModJsScriptingOpSync(
-                    "ecs_value_ref_set",
-                    target.valueRef,
-                    p,
-                    value
-                );
-            },
-            apply: (target, thisArg, args) => {
-                let ret = bevyModJsScriptingOpSync(
-                    "ecs_value_ref_call",
-                    target.valueRef,
-                    args.map((arg) => {
-                        return unwrapValueRef(arg);
-                    })
-                );
-                return wrapValueRef(ret);
-            },
-        });
-        return proxy;
+                            return Value.wrapValueRef(valueRef);
+                    }
+                },
+                set: (target, p, value) => {
+                    bevyModJsScriptingOpSync(
+                        "ecs_value_ref_set",
+                        target.valueRef,
+                        p,
+                        value
+                    );
+                },
+                apply: (target, thisArg, args) => {
+                    let ret = bevyModJsScriptingOpSync(
+                        "ecs_value_ref_call",
+                        target.valueRef,
+                        args.map((arg) => {
+                            return Value.unwrapValueRef(arg);
+                        })
+                    );
+                    return Value.wrapValueRef(ret);
+                },
+            });
+            return proxy;
+        },
+
+        // Instantiates the default value of a given bevy type
+        default(type) {
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName));
+        },
+
+        // Instantiates a new instance of a bevy type with the given fields
+        create(arg) {
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_new", arg));
+        }
     }
 
     const world = new World();

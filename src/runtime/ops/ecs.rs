@@ -4,6 +4,7 @@ use crate::runtime::{JsRuntimeOp, OpMap};
 
 use self::types::{JsReflectFunctions, JsValueRefs};
 
+mod component;
 mod info;
 mod query;
 mod resource;
@@ -16,7 +17,10 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
     ops.insert("ecs_world_components", Box::new(info::ecs_world_components));
     ops.insert("ecs_world_resources", Box::new(info::ecs_world_resources));
     ops.insert("ecs_world_entities", Box::new(info::ecs_world_entities));
-    ops.insert("ecs_world_query_collect", Box::new(query::ecs_world_query_collect));
+    ops.insert(
+        "ecs_world_query_collect",
+        Box::new(query::ecs_world_query_collect),
+    );
     ops.insert("ecs_world_query_get", Box::new(query::ecs_world_query_get));
     ops.insert(
         "ecs_world_get_resource",
@@ -32,6 +36,14 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
     ops.insert("ecs_value_ref_call", Box::new(value::ecs_value_ref_call));
     ops.insert("ecs_value_ref_eq", Box::new(value::ecs_value_ref_eq));
     ops.insert("ecs_value_ref_free", Box::new(value::ecs_value_ref_free));
+    ops.insert(
+        "ecs_value_ref_default",
+        Box::new(value::ecs_value_ref_default),
+    );
+    ops.insert(
+        "ecs_component_insert",
+        Box::new(component::ecs_component_insert),
+    );
 }
 
 /// Op used to provide the JS classes and globals used to interact with the other ECS ops
