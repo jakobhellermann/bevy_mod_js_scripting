@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use anyhow::{format_err, Context};
-use bevy::prelude::{default, World};
+use bevy::prelude::{default, ReflectDefault, World};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
@@ -198,6 +198,39 @@ pub fn ecs_value_ref_to_string(
     let reflect = value_ref.get(world).unwrap();
 
     Ok(serde_json::Value::String(format!("{reflect:?}")))
+}
+
+pub fn ecs_value_ref_default(
+    context: OpContext,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (type_name,): (String,) = serde_json::from_value(args).context("parse args")?;
+
+    let value_refs = context
+        .op_state
+        .entry::<JsValueRefs>()
+        .or_insert_with(default);
+
+    // Load the type registry
+    let type_registry = world.resource::<TypeRegistryArc>();
+    let type_registry = type_registry.read();
+
+    // Get the type registration for the named type
+    let type_registration = type_registry
+        .get_with_name(&type_name)
+        .ok_or_else(|| format_err!("Type not registered: {type_name}"))?;
+
+    // Get the default creator for the reflected type
+    let reflect_default = type_registration
+        .data::<ReflectDefault>()
+        .ok_or_else(|| format_err!("Type does not have ReflectDefault: {type_name}"))?;
+    let value = reflect_default.default();
+
+    // Return the value ref to the new object
+    let value_ref = JsValueRef::new_free(value, value_refs);
+    Ok(serde_json::to_value(value_ref)?)
 }
 
 pub fn ecs_value_ref_call(

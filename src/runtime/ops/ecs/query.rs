@@ -1,9 +1,9 @@
-use anyhow::{format_err, Context};
+use anyhow::Context;
 use bevy::{
     ecs::component::ComponentId,
     prelude::{default, Entity},
 };
-use bevy_ecs_dynamic::reflect_value_ref::{query::EcsValueRefQuery, ReflectValueRef};
+use bevy_ecs_dynamic::reflect_value_ref::query::EcsValueRefQuery;
 
 use crate::runtime::OpContext;
 
@@ -63,17 +63,7 @@ pub fn ecs_world_query_get(
 
     let (entity_value_ref, descriptor): (JsValueRef, QueryDescriptor) =
         serde_json::from_value(args).context("component query")?;
-    let entity: Entity = {
-        let value_ref: &ReflectValueRef = value_refs
-            .get(entity_value_ref.key)
-            .ok_or_else(|| format_err!("Value ref doesn't exist"))?;
-
-        let borrow = value_ref.get(world)?;
-
-        *borrow
-            .downcast_ref()
-            .ok_or_else(|| format_err!("Value passed not an entity"))?
-    };
+    let entity: Entity = entity_value_ref.get_entity(world, value_refs)?;
 
     let components: Vec<ComponentId> = descriptor
         .iter()

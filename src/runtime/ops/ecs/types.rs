@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use anyhow::format_err;
 use bevy::{
     ecs::component::{ComponentId, ComponentInfo},
     prelude::*,
@@ -47,6 +48,23 @@ impl JsValueRef {
             key: value_refs.insert(ReflectValueRef::ecs_ref(value)),
             function: None,
         }
+    }
+
+    /// If this value ref represents an [`Entity`] get it. Returns an error if it is not an entity.
+    pub fn get_entity(
+        &self,
+        world: &World,
+        value_refs: &JsValueRefs,
+    ) -> anyhow::Result<Entity> {
+        let value_ref: &ReflectValueRef = value_refs
+            .get(self.key)
+            .ok_or_else(|| format_err!("Value ref doesn't exist"))?;
+
+        let borrow = value_ref.get(world)?;
+
+        Ok(*borrow
+            .downcast_ref()
+            .ok_or_else(|| format_err!("Value passed not an entity"))?)
     }
 }
 
