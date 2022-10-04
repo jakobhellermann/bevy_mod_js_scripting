@@ -40,6 +40,7 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
         "ecs_value_ref_default",
         Box::new(value::ecs_value_ref_default),
     );
+    ops.insert("ecs_value_ref_patch", Box::new(value::ecs_value_ref_patch));
     ops.insert(
         "ecs_component_insert",
         Box::new(component::ecs_component_insert),

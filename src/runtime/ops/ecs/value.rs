@@ -364,6 +364,32 @@ pub fn ecs_value_ref_default(
     Ok(serde_json::to_value(value_ref)?)
 }
 
+pub fn ecs_value_ref_patch(
+    context: OpContext,
+    world: &mut bevy::prelude::World,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    // Parse args
+    let (value_ref, patch): (JsValueRef, serde_json::Value) =
+        serde_json::from_value(args).context("parse args")?;
+
+    let value_refs = context
+        .op_state
+        .entry::<JsValueRefs>()
+        .or_insert_with(default);
+
+    let value_ref = value_refs
+        .get_mut(value_ref.key)
+        .ok_or_else(|| format_err!("Value ref does not exist"))?;
+
+    let mut value = value_ref.get_mut(world)?;
+
+    // Patch the default value if a patch is provided
+    patch_reflect_with_json(value.as_reflect_mut(), patch)?;
+
+    Ok(serde_json::Value::Null)
+}
+
 pub fn ecs_value_ref_call(
     context: OpContext,
     world: &mut bevy::prelude::World,

@@ -24,6 +24,7 @@ declare type RawValueRef = unknown;
 
 declare interface ValueGlobal {
   create<T>(t: BevyType<T>, patch?: any): T;
+  patch<T>(value: any, patch: any): T;
 }
 
 declare let Value: ValueGlobal;

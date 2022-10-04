@@ -187,6 +187,10 @@
         create(type, patch) {
             return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName, patch));
         },
+
+        patch(value, patch) {
+            Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_patch", Value.unwrapValueRef(value), patch));
+        }
     }
 
     const world = new World();
