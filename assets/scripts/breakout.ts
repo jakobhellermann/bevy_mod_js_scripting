@@ -31,13 +31,15 @@ function run() {
     // Query the entity that has the NotABallYet component
     for (const item of world.query(NotABallYet)) {
       // Insert the ball component on that entity
-      world.insert(item.entity, Value.default(Ball));
+      world.insert(item.entity, Value.create(Ball));
 
       // Create a velocity component
-      let vel = Value.default(Velocity);
-      // Set the velocity speed
-      vel[0].x = -200.0;
-      vel[0].y = 300.0;
+      let vel = Value.create(Velocity, [
+        {
+          x: -200,
+          y: 200,
+        },
+      ]);
 
       // Add the velocity to the ball
       world.insert(item.entity, vel);

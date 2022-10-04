@@ -23,7 +23,7 @@ declare interface BevyScript {
 declare type RawValueRef = unknown;
 
 declare interface ValueGlobal {
-  default<T>(t: BevyType<T>): T;
+  create<T>(t: BevyType<T>, patch?: any): T;
 }
 
 declare let Value: ValueGlobal;

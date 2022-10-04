@@ -184,8 +184,8 @@
         },
 
         // Instantiates the default value of a given bevy type
-        default(type) {
-            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName));
+        create(type, patch) {
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName, patch));
         },
     }
 
