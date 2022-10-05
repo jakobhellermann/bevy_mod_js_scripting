@@ -97,6 +97,10 @@
                 Value.unwrapValueRef(component)
             );
         }
+
+        spawn() {
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_entity_spawn"));
+        }
     }
 
     const valueRefFinalizationRegistry = new FinalizationRegistry(ref => {

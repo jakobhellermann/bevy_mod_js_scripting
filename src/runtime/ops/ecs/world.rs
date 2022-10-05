@@ -4,6 +4,22 @@ use bevy_reflect::TypeRegistryArc;
 
 use crate::{JsValueRef, JsValueRefs, OpContext};
 
+pub fn ecs_entity_spawn(
+    context: OpContext,
+    world: &mut bevy::prelude::World,
+    _args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    let value_refs = context
+        .op_state
+        .entry::<JsValueRefs>()
+        .or_insert_with(default);
+
+    let entity = world.spawn().id();
+    let value_ref = JsValueRef::new_free(Box::new(entity), value_refs);
+
+    Ok(serde_json::to_value(value_ref)?)
+}
+
 pub fn ecs_component_insert(
     context: OpContext,
     world: &mut bevy::prelude::World,
