@@ -76,6 +76,7 @@ declare class World {
   query<Q extends QueryParameter[]>(...query: Q): QueryItems<Q>;
   get<T>(entity: Entity, component: BevyType<T>): T | undefined;
   insert<T>(entity: Entity, component: BevyType<T>, value: T): void;
+  spawn(): Entity;
 }
 
 declare let world: World;
