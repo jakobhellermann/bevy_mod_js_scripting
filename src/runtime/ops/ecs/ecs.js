@@ -97,6 +97,10 @@
                 Value.unwrapValueRef(component)
             );
         }
+
+        spawn() {
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_entity_spawn"));
+        }
     }
 
     const VALUE_REF_GET_INNER = Symbol("value_ref_get_inner");
