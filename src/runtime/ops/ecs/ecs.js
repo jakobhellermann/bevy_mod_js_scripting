@@ -165,7 +165,7 @@
                         "ecs_value_ref_set",
                         target.valueRef,
                         p,
-                        value
+                        Value.unwrapValueRef(value)
                     );
                 },
                 apply: (target, thisArg, args) => {

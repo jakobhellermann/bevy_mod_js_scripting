@@ -61,7 +61,7 @@ pub fn patch_reflect_with_json(
             )?;
         }
         serde_json::Value::Array(array) => match value.reflect_mut() {
-            bevy_reflect::ReflectMut::Struct(_) => todo!(),
+            bevy_reflect::ReflectMut::Struct(_) => bail!("Cannot patch struct with Array"),
             bevy_reflect::ReflectMut::List(target) => {
                 let target_len = target.len();
                 let patch_len = array.len();
@@ -155,6 +155,53 @@ pub fn patch_reflect_with_json(
     Ok(())
 }
 
+/// Check whether or not it's safe to `Reflect.apply` one reflect to another
+fn reflect_is_compatible(reflect1: &dyn Reflect, reflect2: &dyn Reflect) -> bool {
+    match (reflect1.reflect_ref(), reflect2.reflect_ref()) {
+        (ReflectRef::Value(value1), ReflectRef::Value(value2)) => {
+            value1.type_id() == value2.type_id()
+        }
+        (ReflectRef::Array(arr1), ReflectRef::Array(arr2)) => {
+            arr1.iter()
+                .zip(arr2.iter())
+                .fold(true, |compatible, (reflect1, reflect2)| {
+                    compatible && reflect_is_compatible(reflect1, reflect2)
+                })
+        }
+        (ReflectRef::List(list1), ReflectRef::List(list2)) => {
+            list1
+                .iter()
+                .zip(list2.iter())
+                .fold(true, |compatible, (reflect1, reflect2)| {
+                    compatible && reflect_is_compatible(reflect1, reflect2)
+                })
+        }
+        (ReflectRef::Tuple(tuple1), ReflectRef::Tuple(tuple2)) => tuple1
+            .iter_fields()
+            .zip(tuple2.iter_fields())
+            .fold(true, |compatible, (reflect1, reflect2)| {
+                compatible && reflect_is_compatible(reflect1, reflect2)
+            }),
+        (ReflectRef::TupleStruct(tuple1), ReflectRef::TupleStruct(tuple2)) => tuple1
+            .iter_fields()
+            .zip(tuple2.iter_fields())
+            .fold(true, |compatible, (reflect1, reflect2)| {
+                compatible && reflect_is_compatible(reflect1, reflect2)
+            }),
+        (ReflectRef::Struct(struct1), ReflectRef::Struct(struct2)) => struct1
+            .iter_fields()
+            .enumerate()
+            .fold(true, |compatible, (i, field1)| {
+                if let Some(field2) = struct2.field(struct1.name_at(i).unwrap()) {
+                    compatible && reflect_is_compatible(field1, field2)
+                } else {
+                    compatible
+                }
+            }),
+        _ => false,
+    }
+}
+
 pub fn ecs_value_ref_get(
     context: OpContext,
     world: &mut World,
@@ -244,23 +291,53 @@ pub fn ecs_value_ref_set(
     // Access the provided path on the value ref
     let mut value_ref = append_path(value_ref, path, world)?;
 
-    // Get the reflect value
-    let mut reflect = value_ref.get_mut(world).unwrap();
+    // Try to asign as a primitive
+    let primitive_assignment_result = {
+        let new_value = new_value.clone();
+        let mut reflect = value_ref.get_mut(world)?;
 
-    // Try to store a primitive in the value
-    let was_downcast = try_downcast_leaf_set!(reflect <- new_value for
-        u8, u16, u32, u64, u128, usize,
-        i8, i16, i32, i64, i128, isize,
-        String, char, bool, f32, f64
-    )?;
-    if !was_downcast {
-        return Err(format_err!(
-            "could not set value reference of type `{}`: you can only assign directly to primitives",
-            reflect.type_name(),
-        ));
+        // Try to store a primitive in the value
+        try_downcast_leaf_set!(reflect <- new_value for
+            u8, u16, u32, u64, u128, usize,
+            i8, i16, i32, i64, i128, isize,
+            String, char, bool, f32, f64
+        )
+        .map_err(|e| {
+            format_err!(
+                "could not set value reference: type `{type_name}` is not a primitive \
+                type or value ref: {e}",
+                type_name = reflect.type_name(),
+            )
+        })
+    };
+
+    // If we could not assign a primitive
+    if let Err(e) = primitive_assignment_result {
+        // Try to assign as a reflect value
+        if let Ok(new_js_value_ref) = serde_json::from_value::<JsValueRef>(new_value) {
+            let new_value_ref = value_refs
+                .get(new_js_value_ref.key)
+                .ok_or_else(|| format_err!("Value ref doesn't exist"))?;
+            let new_reflect = new_value_ref.get(world)?.clone_value();
+            let mut reflect = value_ref.get_mut(world)?;
+
+            if !reflect_is_compatible(new_reflect.as_reflect(), reflect.as_reflect()) {
+                bail!(
+                    "Cannot assign value ref. {} cannot be assigned to {}",
+                    new_reflect.type_name(),
+                    reflect.type_name()
+                );
+            }
+
+            reflect.apply(new_reflect.as_reflect());
+
+            Ok(serde_json::Value::Null)
+        } else {
+            Err(e)
+        }
+    } else {
+        Ok(serde_json::Value::Null)
     }
-
-    Ok(serde_json::Value::Null)
 }
 
 pub fn ecs_value_ref_keys(
@@ -555,4 +632,63 @@ fn append_path(
         ReflectRef::Map(_) | ReflectRef::Value(_) | ReflectRef::Enum(_) => path,
     };
     Ok(value_ref.append_path(&path, world)?)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[derive(Reflect, Default)]
+    struct S1 {
+        a: String,
+        b: f32,
+    }
+
+    #[derive(Reflect, Default)]
+    struct S2 {
+        a: String,
+        b: f32,
+        c: u32,
+    }
+
+    #[derive(Reflect, Default)]
+    struct S3 {
+        a: String,
+        b: u32,
+    }
+
+    #[test]
+    fn test_reflect_is_compatible_check() {
+        let string = Box::new(String::default()) as Box<dyn Reflect>;
+        let uint = Box::new(0u32) as Box<dyn Reflect>;
+        let mut s1 = Box::new(S1::default()) as Box<dyn Reflect>;
+        let s2 = Box::new(S2::default()) as Box<dyn Reflect>;
+        let s3 = Box::new(S3::default()) as Box<dyn Reflect>;
+
+        assert!(!reflect_is_compatible(
+            uint.as_reflect(),
+            string.as_reflect()
+        ));
+        assert!(!reflect_is_compatible(s1.as_reflect(), string.as_reflect()));
+
+        assert!(reflect_is_compatible(s1.as_reflect(), s2.as_reflect()));
+        s1.apply(s2.as_reflect());
+
+        assert!(!reflect_is_compatible(s1.as_reflect(), s3.as_reflect()));
+
+        let mut l1 = Box::new(vec![1, 2, 3]) as Box<dyn Reflect>;
+        let l2 = Box::new(vec![5, 4, 3, 2, 1]) as Box<dyn Reflect>;
+
+        assert!(reflect_is_compatible(l1.as_reflect(), l2.as_reflect()));
+        l1.apply(l2.as_reflect());
+        assert!(!reflect_is_compatible(l1.as_reflect(), s1.as_reflect()));
+
+        let mut t1 = Box::new((0u32, String::from("hi"))) as Box<dyn Reflect>;
+        let t2 = Box::new((1u32, String::from("bye"))) as Box<dyn Reflect>;
+        let t3 = Box::new((0f32, String::from("bye"))) as Box<dyn Reflect>;
+
+        assert!(reflect_is_compatible(t1.as_reflect(), t2.as_reflect()));
+        t1.apply(t2.as_reflect());
+        assert!(!reflect_is_compatible(t1.as_reflect(), t3.as_reflect()));
+    }
 }
