@@ -110,7 +110,16 @@
         unwrapValueRef(valueRefProxy) {
             if (valueRefProxy === null || valueRefProxy === undefined) return valueRefProxy;
             const inner = valueRefProxy[VALUE_REF_GET_INNER]
-            return inner ? inner : valueRefProxy;
+            if (inner) {
+                return inner;
+            } else {
+                if (typeof valueRefProxy == 'object') {
+                    for (const key of Reflect.ownKeys(valueRefProxy)) {
+                        valueRefProxy[key] = Value.unwrapValueRef(valueRefProxy[key]);
+                    }
+                }
+                return valueRefProxy;
+            }
         },
 
         // keep primitives, null and undefined as is, otherwise wraps the object
@@ -183,7 +192,7 @@
 
         // Instantiates the default value of a given bevy type
         create(type, patch) {
-            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName, patch));
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName, Value.unwrapValueRef(patch)));
         },
 
         patch(value, patch) {

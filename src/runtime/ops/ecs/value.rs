@@ -1,7 +1,10 @@
 use std::any::TypeId;
 
 use anyhow::{bail, format_err, Context};
-use bevy::prelude::{default, ReflectDefault, World};
+use bevy::{
+    prelude::{default, ReflectDefault, World},
+    utils::HashMap,
+};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{Reflect, ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
@@ -41,25 +44,93 @@ macro_rules! try_downcast_leaf_set {
     };
 }
 
+#[derive(Debug)]
+pub enum JsonValueOrReflect {
+    Null,
+    Bool(bool),
+    Number(serde_json::Number),
+    String(String),
+    Array(Vec<JsonValueOrReflect>),
+    Object(HashMap<String, JsonValueOrReflect>),
+    Reflect(Box<dyn Reflect>),
+}
+
+impl JsonValueOrReflect {
+    fn into_primitive_value(self) -> Option<serde_json::Value> {
+        use serde_json::Value as V;
+        Some(match self {
+            JsonValueOrReflect::Null => V::Null,
+            JsonValueOrReflect::Bool(b) => V::Bool(b),
+            JsonValueOrReflect::Number(n) => V::Number(n),
+            JsonValueOrReflect::String(s) => V::String(s),
+            _ => return None,
+        })
+    }
+    fn from_value(
+        value: serde_json::Value,
+        value_refs: &JsValueRefs,
+        world: &World,
+    ) -> anyhow::Result<Self> {
+        if let Ok(value_ref) = serde_json::from_value::<JsValueRef>(value.clone()) {
+            let value_ref = value_refs
+                .get(value_ref.key)
+                .ok_or_else(|| format_err!("Value ref doesn't exist"))?;
+            let reflect = value_ref.get(world)?.clone_value();
+
+            Ok(Self::Reflect(reflect))
+        } else {
+            match value {
+                serde_json::Value::Null => Ok(Self::Null),
+                serde_json::Value::Bool(b) => Ok(Self::Bool(b)),
+                serde_json::Value::Number(n) => Ok(Self::Number(n)),
+                serde_json::Value::String(s) => Ok(Self::String(s)),
+                serde_json::Value::Array(arr) => Ok(Self::Array(
+                    arr.into_iter()
+                        .map(|value| Self::from_value(value, value_refs, world))
+                        .collect::<Result<_, _>>()?,
+                )),
+                serde_json::Value::Object(map) => {
+                    let mut object = HashMap::default();
+                    for (key, value) in map {
+                        object.insert(key, Self::from_value(value, value_refs, world)?);
+                    }
+                    Ok(Self::Object(object))
+                }
+            }
+        }
+    }
+}
+
 /// Converts a JSON value to a dynamic reflect struct or list
 pub fn patch_reflect_with_json(
     value: &mut dyn Reflect,
-    patch: serde_json::Value,
+    patch: JsonValueOrReflect,
 ) -> anyhow::Result<()> {
     match patch {
-        serde_json::Value::Null => {
+        JsonValueOrReflect::Reflect(patch) => {
+            if !reflect_is_compatible(value, patch.as_reflect()) {
+                bail!(
+                    "Cannot assign type {} to {}",
+                    value.type_name(),
+                    patch.type_name()
+                );
+            }
+            value.apply(patch.as_reflect());
+        }
+        JsonValueOrReflect::Null => {
             bail!("Can't patch values with null");
         }
-        patch @ (serde_json::Value::Bool(_)
-        | serde_json::Value::Number(_)
-        | serde_json::Value::String(_)) => {
+        patch @ (JsonValueOrReflect::Bool(_)
+        | JsonValueOrReflect::Number(_)
+        | JsonValueOrReflect::String(_)) => {
+            let patch = patch.into_primitive_value().unwrap();
             try_downcast_leaf_set!(value <- patch for
                 u8, u16, u32, u64, u128, usize,
                 i8, i16, i32, i64, i128, isize,
                 String, char, bool, f32, f64
             )?;
         }
-        serde_json::Value::Array(array) => match value.reflect_mut() {
+        JsonValueOrReflect::Array(array) => match value.reflect_mut() {
             bevy_reflect::ReflectMut::Struct(_) => bail!("Cannot patch struct with Array"),
             bevy_reflect::ReflectMut::List(target) => {
                 let target_len = target.len();
@@ -112,7 +183,7 @@ pub fn patch_reflect_with_json(
             bevy_reflect::ReflectMut::Map(_) => bail!("Cannot patch map with array"),
             bevy_reflect::ReflectMut::Value(_) => bail!("Cannot patch primitive value with array"),
         },
-        serde_json::Value::Object(map) => match value.reflect_mut() {
+        JsonValueOrReflect::Object(map) => match value.reflect_mut() {
             bevy_reflect::ReflectMut::Struct(target) => {
                 for (key, value) in map {
                     let field = target.field_mut(&key).ok_or_else(|| {
@@ -417,6 +488,10 @@ pub fn ecs_value_ref_default(
         .entry::<JsValueRefs>()
         .or_insert_with(default);
 
+    let patch = patch
+        .map(|patch| JsonValueOrReflect::from_value(patch, value_refs, world))
+        .transpose()?;
+
     // Load the type registry
     let type_registry = world.resource::<TypeRegistryArc>();
     let type_registry = type_registry.read();
@@ -455,6 +530,8 @@ pub fn ecs_value_ref_patch(
         .op_state
         .entry::<JsValueRefs>()
         .or_insert_with(default);
+
+    let patch = JsonValueOrReflect::from_value(patch, value_refs, world)?;
 
     let value_ref = value_refs
         .get_mut(value_ref.key)
