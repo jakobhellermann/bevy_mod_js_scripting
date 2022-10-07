@@ -95,6 +95,8 @@ for (item of world.query(Ball, Velocity)) {
 ```
 
 Currently, there is a pregenerated list of bevy types in [./types/bevy_types.ts](./types/bevy_types.ts), and you can also just define your own ones.
+    
+In the future we may include a utility for automatically generating the typescript definitions for your game in a `build.rs` script, so that you don't need to manually write or re-generate them.
 
 </details>
 <details>
