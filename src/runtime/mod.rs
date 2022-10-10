@@ -32,7 +32,7 @@ pub trait JsRuntimeApi: FromWorld {
     fn has_loaded(&self, handle: &Handle<JsScript>) -> bool;
 
     /// Run a script
-    fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World);
+    fn run_script(&self, handle: &Handle<JsScript>, fn_name: &str, world: &mut World);
 
     /// Run during an exclusive system executed before [`CoreStage::First`] to allow the engine to
     /// do any pre-frame preparation.
