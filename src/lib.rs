@@ -6,7 +6,12 @@ mod runtime;
 mod transpile;
 
 use asset::JsScriptLoader;
-use bevy::{asset::AssetStage, prelude::*, utils::HashSet};
+use bevy::{
+    asset::AssetStage,
+    ecs::schedule::StageLabelId,
+    prelude::*,
+    utils::{HashMap, HashSet},
+};
 
 pub use bevy_reflect_fns;
 pub use asset::JsScript;
@@ -22,7 +27,25 @@ pub use type_map;
 
 use runtime::{JsRuntime, JsRuntimeApi};
 
-pub struct JsScriptingPlugin;
+pub struct JsScriptingPlugin {
+    pub script_stages: HashMap<StageLabelId, String>,
+}
+
+impl Default for JsScriptingPlugin {
+    fn default() -> Self {
+        Self {
+            script_stages: [
+                (CoreStage::First.as_label(), "first".to_string()),
+                (CoreStage::PreUpdate.as_label(), "preUpdate".to_string()),
+                (CoreStage::Update.as_label(), "update".to_string()),
+                (CoreStage::PostUpdate.as_label(), "postUpdate".to_string()),
+                (CoreStage::Last.as_label(), "last".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        }
+    }
+}
 
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct ActiveScripts(pub HashSet<Handle<JsScript>>);
@@ -59,22 +82,20 @@ impl Plugin for JsScriptingPlugin {
         );
 
         // Run scripts assocated to each core stage
-        for stage in &[
-            CoreStage::First,
-            CoreStage::PreUpdate,
-            CoreStage::Update,
-            CoreStage::PostUpdate,
-            CoreStage::Last,
-        ] {
+        for (label, fn_name) in self
+            .script_stages
+            .iter()
+            .map(|(label, fn_name)| (*label, fn_name.to_owned()))
+        {
             app.add_system_to_stage(
-                stage.clone(),
+                label,
                 (move |world: &mut World| {
                     let active_scripts = world.remove_resource::<ActiveScripts>().unwrap();
                     let runtime = world.remove_non_send_resource::<JsRuntime>().unwrap();
 
                     for script in &*active_scripts {
                         if runtime.has_loaded(script) {
-                            runtime.run_script(script, stage, world);
+                            runtime.run_script(script, &fn_name, world);
                         }
                     }
 

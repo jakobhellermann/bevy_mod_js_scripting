@@ -150,7 +150,7 @@ impl JsRuntimeApi for JsRuntime {
         self.borrow().scripts.contains_key(handle)
     }
 
-    fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World) {
+    fn run_script(&self, handle: &Handle<JsScript>, fn_name_str: &str, world: &mut World) {
         let mut this = self.borrow_mut();
         let JsRuntimeInner { scripts, runtime } = &mut *this;
 
@@ -179,15 +179,6 @@ impl JsRuntimeApi for JsRuntime {
                 return;
             };
 
-            // Figure out which function to call on the exported object
-            let fn_name_str = match stage {
-                CoreStage::First => "first",
-                CoreStage::PreUpdate => "preUpdate",
-                CoreStage::Update => "update",
-                CoreStage::PostUpdate => "postUpdate",
-                CoreStage::Last => "last",
-            };
-
             // Get a javascript value for the name of the function to call
             let fn_name = v8::String::new_from_utf8(
                 scope,
@@ -200,7 +191,7 @@ impl JsRuntimeApi for JsRuntime {
             let script_fn = if let Some(script_fn) = output.get(scope, fn_name.into()) {
                 script_fn
             } else {
-                warn!(?script.path, "Getting function named `{}` on script init() value failed. Skipping.", fn_name_str);
+                warn!(?script.path, "Getting function named `{}` on script default export failed. Skipping.", fn_name_str);
                 return;
             };
 

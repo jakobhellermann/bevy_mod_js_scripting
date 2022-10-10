@@ -180,7 +180,7 @@ impl JsRuntimeApi for JsRuntime {
             .contains_key(handle)
     }
 
-    fn run_script(&self, handle: &Handle<JsScript>, stage: &CoreStage, world: &mut World) {
+    fn run_script(&self, handle: &Handle<JsScript>, fn_name_str: &str, world: &mut World) {
         {
             let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
             std::mem::swap(&mut state.world, world);
@@ -205,14 +205,7 @@ impl JsRuntimeApi for JsRuntime {
                 anyhow::format_err!("Script must have a default export that returns an object")
             })?;
 
-            let fn_name = match stage {
-                CoreStage::First => "first",
-                CoreStage::PreUpdate => "preUpdate",
-                CoreStage::Update => "update",
-                CoreStage::PostUpdate => "postUpdate",
-                CoreStage::Last => "last",
-            };
-            let fn_name_str = wasm_bindgen::intern(fn_name);
+            let fn_name_str = wasm_bindgen::intern(fn_name_str);
             let fn_name = wasm_bindgen::JsValue::from_str(fn_name_str);
 
             if let Ok(script_fn) = js_sys::Reflect::get(output, &fn_name) {

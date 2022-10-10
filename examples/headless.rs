@@ -15,7 +15,7 @@ fn main() {
             watch_for_changes: true,
             ..default()
         })
-        .add_plugin(JsScriptingPlugin)
+        .add_plugin(JsScriptingPlugin::default())
         .add_startup_system(setup)
         .add_js_system("scripts/headless.ts")
         .register_type::<TestComponent>()
