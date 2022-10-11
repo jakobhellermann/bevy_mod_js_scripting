@@ -6,16 +6,11 @@ mod runtime;
 mod transpile;
 
 use asset::JsScriptLoader;
-use bevy::{
-    asset::AssetStage,
-    ecs::schedule::StageLabelId,
-    prelude::*,
-    utils::{HashMap, HashSet},
-};
+use bevy::{asset::AssetStage, ecs::schedule::SystemDescriptor, prelude::*, utils::HashSet};
 
-pub use bevy_reflect_fns;
 pub use asset::JsScript;
 pub use bevy_ecs_dynamic;
+pub use bevy_reflect_fns;
 pub use runtime::{
     ops::ecs::types::{
         JsReflectFunctions, JsValueRef, JsValueRefKey, JsValueRefs, ReflectFunctionKey,
@@ -27,24 +22,12 @@ pub use type_map;
 
 use runtime::{JsRuntime, JsRuntimeApi};
 
+#[derive(Default)]
 pub struct JsScriptingPlugin {
-    pub script_stages: HashMap<StageLabelId, String>,
-}
-
-impl Default for JsScriptingPlugin {
-    fn default() -> Self {
-        Self {
-            script_stages: [
-                (CoreStage::First.as_label(), "first".to_string()),
-                (CoreStage::PreUpdate.as_label(), "preUpdate".to_string()),
-                (CoreStage::Update.as_label(), "update".to_string()),
-                (CoreStage::PostUpdate.as_label(), "postUpdate".to_string()),
-                (CoreStage::Last.as_label(), "last".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        }
-    }
+    /// By default, the plugin will setup script functions corresponding to each [`CoreStage`] to
+    /// run at the start of each stage. This disables that behavior so that script stages must be
+    /// added manually using [`run_script_fn_system`].
+    pub skip_core_stage_setup: bool,
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -81,31 +64,44 @@ impl Plugin for JsScriptingPlugin {
             .at_end(),
         );
 
-        // Run scripts assocated to each core stage
-        for (label, fn_name) in self
-            .script_stages
-            .iter()
-            .map(|(label, fn_name)| (*label, fn_name.to_owned()))
-        {
-            app.add_system_to_stage(
-                label,
-                (move |world: &mut World| {
-                    let active_scripts = world.remove_resource::<ActiveScripts>().unwrap();
-                    let runtime = world.remove_non_send_resource::<JsRuntime>().unwrap();
-
-                    for script in &*active_scripts {
-                        if runtime.has_loaded(script) {
-                            runtime.run_script(script, &fn_name, world);
-                        }
-                    }
-
-                    world.insert_resource(active_scripts);
-                    world.insert_non_send_resource(runtime);
-                })
-                .at_start(),
-            );
+        if !self.skip_core_stage_setup {
+            // Run scripts assocated to each core stage
+            for (label, fn_name) in [
+                (CoreStage::First, "first"),
+                (CoreStage::PreUpdate, "preUpdate"),
+                (CoreStage::Update, "update"),
+                (CoreStage::PostUpdate, "postUpdate"),
+                (CoreStage::Last, "last"),
+            ] {
+                app.add_system_to_stage(label, run_script_fn_system(fn_name.to_owned()).at_start());
+            }
         }
     }
+}
+
+/// This returns a system that will run the exported function, `fn_name`, for every script in
+/// [`ActiveScripts`].
+///
+/// This allows you to schedule which stages different script functions will be executed at.
+///
+/// By default the plugin will run script functions corresponding to Bevy [`CoreStage`]s at the
+/// start of each core stage, but this can be disabled by setting
+/// [`JsCriptingPlugin::skip_core_stage_setup`] to `true`.
+pub fn run_script_fn_system(fn_name: String) -> SystemDescriptor {
+    (move |world: &mut World| {
+        let active_scripts = world.remove_resource::<ActiveScripts>().unwrap();
+        let runtime = world.remove_non_send_resource::<JsRuntime>().unwrap();
+
+        for script in &*active_scripts {
+            if runtime.has_loaded(script) {
+                runtime.run_script(script, &fn_name, world);
+            }
+        }
+
+        world.insert_resource(active_scripts);
+        world.insert_non_send_resource(runtime);
+    })
+    .into_descriptor()
 }
 
 pub trait AddJsSystem {
