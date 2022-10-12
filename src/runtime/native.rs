@@ -217,15 +217,35 @@ impl JsRuntimeApi for JsRuntime {
         });
     }
 
+    fn frame_start(&self, world: &mut World) {
+        let this: &mut JsRuntimeInner = &mut self.borrow_mut();
+        let op_state = this.runtime.op_state();
+        let mut op_state = op_state.borrow_mut();
+
+        with_state(&mut op_state, |op_state, ops: &mut Ops| {
+            with_state(op_state, |_, script_op_state: &mut TypeMap| {
+                for op in ops {
+                    op.frame_start(script_op_state, world);
+                }
+            });
+        });
+    }
+
     fn frame_end(&self, world: &mut World) {
         let this: &mut JsRuntimeInner = &mut self.borrow_mut();
 
-        // Run the JS event loop
-        with_world(world, &mut this.runtime, |runtime| {
-            if let Err(e) = pollster::block_on(runtime.run_event_loop(true)) {
-                error!("Error running JS event loop: {}", e);
-            }
-        });
+        {
+            let op_state = this.runtime.op_state();
+            let mut op_state = op_state.borrow_mut();
+
+            with_state(&mut op_state, |op_state, ops: &mut Ops| {
+                with_state(op_state, |_, script_op_state: &mut TypeMap| {
+                    for op in ops {
+                        op.frame_end(script_op_state, world);
+                    }
+                });
+            });
+        }
     }
 }
 

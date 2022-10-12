@@ -150,6 +150,17 @@ pub trait JsRuntimeOp {
         // indicate that the op is not meant to be run.
         anyhow::bail!("Op is not meant to be called");
     }
+
+    /// Function called at  to allow the op to do any preparation work
+    fn frame_start(&self, op_state: &mut TypeMap, world: &mut World) {
+        // Fix clippy warning by using variables
+        let _ = (op_state, world);
+    }
+
+    fn frame_end(&self, op_state: &mut TypeMap, world: &mut World) {
+        // Fix clippy warning by using variables
+        let _ = (op_state, world);
+    }
 }
 
 impl<T: Fn(OpContext<'_>, &mut World, serde_json::Value) -> anyhow::Result<serde_json::Value>>
