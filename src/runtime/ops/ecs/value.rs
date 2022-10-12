@@ -9,7 +9,7 @@ use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{Reflect, ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
 
-use crate::runtime::OpContext;
+use crate::{runtime::OpContext, JsRuntimeOp, JsReflectFunctions};
 
 use super::{
     types::{
