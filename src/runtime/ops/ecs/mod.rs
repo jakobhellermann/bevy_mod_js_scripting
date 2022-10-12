@@ -40,6 +40,7 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
         Box::new(value::ecs_value_ref_default),
     );
     ops.insert("ecs_value_ref_patch", Box::new(value::ecs_value_ref_patch));
+    ops.insert("ecs_value_ref_cleanup", Box::new(value::EcsValueRefCleanup));
     ops.insert("ecs_entity_spawn", Box::new(world::ecs_entity_spawn));
     ops.insert("ecs_value_ref_cleanup", Box::new(value::EcsValueRefCleanup));
     ops.insert(
