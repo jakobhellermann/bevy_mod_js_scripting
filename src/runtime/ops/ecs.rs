@@ -35,12 +35,12 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
     );
     ops.insert("ecs_value_ref_call", Box::new(value::ecs_value_ref_call));
     ops.insert("ecs_value_ref_eq", Box::new(value::ecs_value_ref_eq));
-    ops.insert("ecs_value_ref_free", Box::new(value::ecs_value_ref_free));
     ops.insert(
         "ecs_value_ref_default",
         Box::new(value::ecs_value_ref_default),
     );
     ops.insert("ecs_value_ref_patch", Box::new(value::ecs_value_ref_patch));
+    ops.insert("ecs_value_ref_cleanup", Box::new(value::EcsValueRefCleanup));
     ops.insert(
         "ecs_component_insert",
         Box::new(component::ecs_component_insert),

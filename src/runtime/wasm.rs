@@ -106,7 +106,10 @@ impl FromWorld for JsRuntime {
             ops,
             op_names,
             op_state: default(),
-            script_info: ScriptInfo { path: default(), handle: default() },
+            script_info: ScriptInfo {
+                path: default(),
+                handle: default(),
+            },
             world: default(),
         }));
 
@@ -226,9 +229,27 @@ impl JsRuntimeApi for JsRuntime {
         let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
         state.script_info = ScriptInfo {
             path: default(),
-            handle: default()
+            handle: default(),
         };
         std::mem::swap(&mut state.world, world);
+    }
+
+    fn frame_start(&self, world: &mut World) {
+        let JsRuntimeState { op_state, ops, .. } =
+            &mut *self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+
+        for op in ops {
+            op.frame_start(op_state, world);
+        }
+    }
+
+    fn frame_end(&self, world: &mut World) {
+        let JsRuntimeState { op_state, ops, .. } =
+            &mut *self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+
+        for op in ops {
+            op.frame_start(op_state, world);
+        }
     }
 }
 
