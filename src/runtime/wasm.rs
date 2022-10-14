@@ -131,6 +131,15 @@ impl FromWorld for JsRuntime {
 
 impl JsRuntimeApi for JsRuntime {
     fn load_script(&self, handle: &Handle<JsScript>, script: &JsScript, _reload: bool) {
+        // Set script info
+        {
+            let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+            state.script_info = ScriptInfo {
+                path: script.path.clone(),
+                handle: handle.clone_weak(),
+            };
+        }
+
         let function = js_sys::Function::new_no_args(&format!(
             r#"return ((window) => {{
                 {code}
@@ -145,6 +154,15 @@ impl JsRuntimeApi for JsRuntime {
                 return;
             }
         };
+
+        // Clear script info
+        {
+            let mut state = self.state.try_lock().expect(LOCK_SHOULD_NOT_FAIL);
+            state.script_info = ScriptInfo {
+                path: default(),
+                handle: default(),
+            };
+        }
 
         self.scripts.try_lock().expect(LOCK_SHOULD_NOT_FAIL).insert(
             handle.clone_weak(),
