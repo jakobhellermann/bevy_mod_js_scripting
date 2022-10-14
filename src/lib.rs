@@ -8,6 +8,7 @@ mod transpile;
 use asset::JsScriptLoader;
 use bevy::{asset::AssetStage, prelude::*, utils::HashSet};
 
+pub use bevy_reflect_fns;
 pub use asset::JsScript;
 pub use bevy_ecs_dynamic;
 pub use runtime::{
