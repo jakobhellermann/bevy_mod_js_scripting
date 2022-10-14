@@ -311,6 +311,7 @@ fn op_bevy_mod_js_scripting(
     args: serde_json::Value,
 ) -> Result<serde_json::Value, AnyError> {
     with_state(state, |state, custom_op_state| {
+        let args = convert_safe_ints(args);
         let script_info = state.borrow::<ScriptInfo>();
         let ops = state.borrow::<Ops>();
         let op_names = state.borrow::<OpNames>();
@@ -351,4 +352,47 @@ fn with_state<T: 'static, R, F: FnOnce(&mut OpState, &mut T) -> R>(state: &mut O
     state.put(t);
 
     r
+}
+
+/// Takes a [`serde_json::Value`] and converts all floating point number types that are safe
+/// integers, to integers.
+///
+/// This is important for deserializing numbers to integers, because of the way `serde_json` handles
+/// them.
+///
+/// For example, `serde_json` will not deserialize `1.0` to a `u32` without an error, but it will
+/// deserialize `1`. `serde_v8` seems to retun numbers with a decimal point, even when they are
+/// valid integers, so this function makes the conversion of safe integers back to integers without
+/// a decimal point.
+fn convert_safe_ints(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Number(n) => {
+            let max_safe_int = (2u64.pow(53) - 1) as f64;
+
+            serde_json::Value::Number(if let Some(f) = n.as_f64() {
+                if f.abs() <= max_safe_int && f.fract() == 0.0 {
+                    if f == 0.0 {
+                        serde_json::Number::from(0u64)
+                    } else if f.is_sign_negative() {
+                        serde_json::Number::from(f as i64)
+                    } else {
+                        serde_json::Number::from(f as u64)
+                    }
+                } else {
+                    n
+                }
+            } else {
+                n
+            })
+        }
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(|x| convert_safe_ints(x)).collect())
+        }
+        serde_json::Value::Object(obj) => serde_json::Value::Object(
+            obj.into_iter()
+                .map(|(k, v)| (k, convert_safe_ints(v)))
+                .collect(),
+        ),
+        other => other,
+    }
 }
