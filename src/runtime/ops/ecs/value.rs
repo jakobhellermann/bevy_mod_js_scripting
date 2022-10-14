@@ -9,7 +9,7 @@ use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{Reflect, ReflectRef, TypeRegistryArc};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
 
-use crate::{runtime::OpContext, JsRuntimeOp, JsReflectFunctions};
+use crate::{runtime::OpContext, JsReflectFunctions, JsRuntimeOp};
 
 use super::{
     types::{
@@ -638,14 +638,25 @@ pub fn ecs_value_ref_call(
             // Finally call the method
             let ret = method.call(args.as_mut_slice()).unwrap();
 
-            // Drop our intermediates and args so that we can use `value_refs` again, below.
-            drop(args);
-            drop(arg_intermediates);
-            drop(receiver_intermediate);
+            // Try to downcast return value to a primitive
+            let primitive = try_downcast_leaf_get!(ret for
+                u8, u16, u32, u64, u128, usize,
+                i8, i16, i32, i64, i128, isize,
+                String, char, bool, f32, f64
+            )?;
 
-            let ret = JsValueRef::new_free(ret, value_refs);
+            if let Some(primitive) = primitive {
+                Ok(primitive)
+            } else {
+                // Drop our intermediates and args so that we can use `value_refs` again, below.
+                drop(args);
+                drop(arg_intermediates);
+                drop(receiver_intermediate);
 
-            Ok(serde_json::to_value(ret)?)
+                let ret = JsValueRef::new_free(ret, value_refs);
+
+                Ok(serde_json::to_value(ret)?)
+            }
         })
 }
 
