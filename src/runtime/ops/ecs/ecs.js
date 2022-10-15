@@ -79,7 +79,7 @@
                         default:
                             const collected = collectedQuery(target);
                             const prop = collected[propName];
-                            return prop.bind ? prop.bind(collected) : prop;
+                            return prop && prop.bind ? prop.bind(collected) : prop;
                     }
                 }
             })
