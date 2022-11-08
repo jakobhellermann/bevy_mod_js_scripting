@@ -6,7 +6,7 @@ mod runtime;
 mod transpile;
 
 use asset::JsScriptLoader;
-use bevy::{asset::AssetStage, ecs::schedule::SystemDescriptor, prelude::*, utils::HashSet};
+use bevy::{asset::AssetStage, ecs::schedule::SystemDescriptor, prelude::*};
 
 pub use asset::JsScript;
 pub use bevy_ecs_dynamic;
@@ -31,7 +31,7 @@ pub struct JsScriptingPlugin {
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct ActiveScripts(pub HashSet<Handle<JsScript>>);
+pub struct ActiveScripts(pub indexmap::IndexSet<Handle<JsScript>, bevy::utils::FixedState>);
 
 impl Plugin for JsScriptingPlugin {
     fn build(&self, app: &mut App) {

@@ -500,6 +500,7 @@ dependencies = [
  "bevy_reflect_fns",
  "deno_core",
  "fixedbitset",
+ "indexmap",
  "js-sys",
  "pollster",
  "serde",
