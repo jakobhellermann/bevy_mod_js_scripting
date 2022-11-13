@@ -1,12 +1,12 @@
 use std::any::TypeId;
 
 use anyhow::{bail, format_err, Context};
-use bevy::prelude::{default, ReflectDefault, World};
+use bevy::prelude::{default, AppTypeRegistry, ReflectDefault, World};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
-use bevy_reflect::{Reflect, ReflectRef, TypeRegistryArc};
+use bevy_reflect::{Reflect, ReflectRef};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
 
-use crate::runtime::OpContext;
+use crate::{runtime::OpContext, JsReflectFunctions, JsRuntimeOp};
 
 use super::{
     types::{
@@ -110,6 +110,7 @@ pub fn patch_reflect_with_json(
                 }
             }
             bevy_reflect::ReflectMut::Map(_) => bail!("Cannot patch map with array"),
+            bevy_reflect::ReflectMut::Enum(_) => bail!("Cannot patch enum with array"),
             bevy_reflect::ReflectMut::Value(_) => bail!("Cannot patch primitive value with array"),
         },
         serde_json::Value::Object(map) => match value.reflect_mut() {
@@ -145,6 +146,7 @@ pub fn patch_reflect_with_json(
             bevy_reflect::ReflectMut::List(_) | bevy_reflect::ReflectMut::Array(_) => {
                 bail!("Cannot patch list or array with object")
             }
+            bevy_reflect::ReflectMut::Enum(_) => bail!("Cannot patch enum object"),
             bevy_reflect::ReflectMut::Value(_) => bail!("Cannot patch primitive value with object"),
         },
     }
@@ -165,7 +167,7 @@ pub fn ecs_value_ref_get(
                 serde_json::from_value(args).context("parse args")?;
 
             // Load the type registry
-            let type_registry = world.resource::<TypeRegistryArc>();
+            let type_registry = world.resource::<AppTypeRegistry>();
             let type_registry = type_registry.read();
 
             // Get the reflect value ref from the JS argument
@@ -340,7 +342,7 @@ pub fn ecs_value_ref_default(
         .or_insert_with(default);
 
     // Load the type registry
-    let type_registry = world.resource::<TypeRegistryArc>();
+    let type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = type_registry.read();
 
     // Get the type registration for the named type
@@ -555,7 +557,7 @@ fn append_path(
             format!(".{path}")
         }
         ReflectRef::List(_) | ReflectRef::Array(_) => format!("[{path}]"),
-        ReflectRef::Map(_) | ReflectRef::Value(_) => path,
+        ReflectRef::Map(_) | ReflectRef::Value(_) | ReflectRef::Enum(_) => path,
     };
     Ok(value_ref.append_path(&path, world)?)
 }

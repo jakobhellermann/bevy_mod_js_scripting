@@ -1,7 +1,6 @@
 use bevy::{
     ecs::component::ComponentId,
     prelude::{default, Entity},
-    utils::HashSet,
 };
 
 use crate::{runtime::OpContext, JsValueRef, JsValueRefs};
@@ -21,13 +20,9 @@ pub fn ecs_world_components(
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
-    let resource_components: HashSet<ComponentId> =
-        world.archetypes().resource().components().collect();
-
     let infos = world
         .components()
         .iter()
-        .filter(|info| !resource_components.contains(&info.id()))
         .map(JsComponentInfo::from)
         .collect::<Vec<_>>();
 
@@ -39,10 +34,10 @@ pub fn ecs_world_resources(
     world: &mut bevy::prelude::World,
     _args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
-    let infos = world
-        .archetypes()
-        .resource()
-        .components()
+    // https://github.com/bevyengine/bevy/pull/6592
+    let infos: Vec<ComponentId> = Vec::new();
+    let infos = infos
+        .into_iter()
         .map(|id| world.components().get_info(id).unwrap())
         .map(JsComponentInfo::from)
         .collect::<Vec<_>>();

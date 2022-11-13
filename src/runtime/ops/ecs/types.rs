@@ -8,7 +8,7 @@ use bevy::{
 use bevy_ecs_dynamic::reflect_value_ref::{
     EcsValueRef, ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
 };
-use bevy_reflect::{Reflect, TypeRegistryArc};
+use bevy_reflect::Reflect;
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectFunction};
 use serde::{Deserialize, Serialize};
 use slotmap::SlotMap;
@@ -51,11 +51,7 @@ impl JsValueRef {
     }
 
     /// If this value ref represents an [`Entity`] get it. Returns an error if it is not an entity.
-    pub fn get_entity(
-        &self,
-        world: &World,
-        value_refs: &JsValueRefs,
-    ) -> anyhow::Result<Entity> {
+    pub fn get_entity(&self, world: &World, value_refs: &JsValueRefs) -> anyhow::Result<Entity> {
         let value_ref: &ReflectValueRef = value_refs
             .get(self.key)
             .ok_or_else(|| format_err!("Value ref doesn't exist"))?;
@@ -89,7 +85,7 @@ impl ComponentIdOrBevyType {
         match self {
             ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(id)),
             ComponentIdOrBevyType::Type { type_name } => {
-                let type_registry = world.resource::<TypeRegistryArc>().read();
+                let type_registry = world.resource::<AppTypeRegistry>().read();
                 let registration = type_registry.get_with_name(type_name).ok_or_else(|| {
                     anyhow::anyhow!("`{type_name}` does not exist in the type registry")
                 })?;

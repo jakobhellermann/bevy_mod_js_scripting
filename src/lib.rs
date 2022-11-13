@@ -23,7 +23,7 @@ use runtime::{JsRuntime, JsRuntimeApi};
 
 pub struct JsScriptingPlugin;
 
-#[derive(Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub struct ActiveScripts(pub HashSet<Handle<JsScript>>);
 
 impl Plugin for JsScriptingPlugin {
@@ -45,7 +45,6 @@ impl Plugin for JsScriptingPlugin {
                 runtime.frame_start(world);
                 world.insert_non_send_resource(runtime);
             })
-            .exclusive_system()
             .at_start(),
         )
         .add_system_to_stage(
@@ -55,7 +54,6 @@ impl Plugin for JsScriptingPlugin {
                 runtime.frame_end(world);
                 world.insert_non_send_resource(runtime);
             })
-            .exclusive_system()
             .at_end(),
         );
 
@@ -82,7 +80,6 @@ impl Plugin for JsScriptingPlugin {
                     world.insert_resource(active_scripts);
                     world.insert_non_send_resource(runtime);
                 })
-                .exclusive_system()
                 .at_start(),
             );
         }

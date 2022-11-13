@@ -2,24 +2,19 @@ use std::time::Duration;
 
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
-use bevy::{
-    app::ScheduleRunnerSettings,
-    asset::{AssetPlugin, AssetServerSettings},
-};
+use bevy::{app::ScheduleRunnerSettings, asset::AssetPlugin};
 use bevy_mod_js_scripting::{AddJsSystem, JsScriptingPlugin};
-use bevy_reflect::TypeRegistryArc;
 use bevy_reflect_fns::ReflectMethods;
 
 fn main() {
     App::new()
-        .insert_resource(AssetServerSettings {
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_millis(200)))
+        .add_plugins(MinimalPlugins)
+        .add_plugin(LogPlugin::default())
+        .add_plugin(AssetPlugin {
             watch_for_changes: true,
             ..default()
         })
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_millis(200)))
-        .add_plugins(MinimalPlugins)
-        .add_plugin(LogPlugin)
-        .add_plugin(AssetPlugin)
         .add_plugin(JsScriptingPlugin)
         .add_startup_system(setup)
         .add_js_system("scripts/headless.ts")
@@ -33,7 +28,7 @@ struct TestComponent {
     number: u8,
 }
 
-#[derive(Component, Reflect)]
+#[derive(Resource, Component, Reflect)]
 struct TestResource {
     transform: Transform,
 }
@@ -41,7 +36,7 @@ struct TestResource {
 #[derive(Component)]
 struct Marker;
 
-fn setup(mut commands: Commands, type_registry: ResMut<TypeRegistryArc>) {
+fn setup(mut commands: Commands, type_registry: ResMut<AppTypeRegistry>) {
     let mut type_registry = type_registry.write();
     type_registry.register::<Transform>();
     type_registry
@@ -58,14 +53,14 @@ fn setup(mut commands: Commands, type_registry: ResMut<TypeRegistryArc>) {
             ),
         ]));
 
-    commands.spawn_bundle((
+    commands.spawn((
         TestComponent {
             value: "component 1".into(),
             number: 28,
         },
         Transform::from_xyz(1.0, 0.0, 0.0),
     ));
-    commands.spawn_bundle((
+    commands.spawn((
         TestComponent {
             value: "component 2".into(),
             number: 79,

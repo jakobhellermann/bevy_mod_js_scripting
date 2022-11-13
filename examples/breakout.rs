@@ -1,9 +1,9 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
-    asset::AssetServerSettings,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    sprite::MaterialMesh2dBundle,
     time::FixedTimestep,
 };
 use bevy_mod_js_scripting::{AddJsSystem, JsScriptingPlugin};
@@ -22,6 +22,8 @@ const PADDLE_PADDING: f32 = 10.0;
 // We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
 const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 1.0);
 const BALL_SIZE: Vec3 = Vec3::new(30.0, 30.0, 0.0);
+const BALL_SPEED: f32 = 400.0;
+const INITIAL_BALL_DIRECTION: Vec2 = Vec2::new(0.5, -0.5);
 
 const WALL_THICKNESS: f32 = 10.0;
 // x coordinates
@@ -52,10 +54,6 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
-        .insert_resource(AssetServerSettings {
-            watch_for_changes: true,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_plugin(JsScriptingPlugin)
         .insert_resource(Scoreboard { score: 0 })
@@ -73,7 +71,6 @@ fn main() {
         .add_system(bevy::window::close_on_esc)
         .add_js_system("scripts/breakout.ts")
         .register_type::<Ball>()
-        .register_type::<NotABallYet>()
         .register_type::<Paddle>()
         .register_type::<Velocity>()
         .register_type::<Collider>()
@@ -83,27 +80,27 @@ fn main() {
         .run();
 }
 
-#[derive(Reflect, Component)]
+#[derive(Reflect, Component, Default)]
+#[reflect(Component)]
 struct Paddle;
 
 #[derive(Reflect, Component, Default)]
-#[reflect(Default, Component)]
+#[reflect(Component)]
 struct Ball;
 
-#[derive(Reflect, Component)]
-struct NotABallYet;
-
-#[derive(Reflect, Component, Deref, DerefMut, Default)]
-#[reflect(Component, Default)]
+#[derive(Reflect, Component, Default, Deref, DerefMut)]
+#[reflect(Component)]
 struct Velocity(Vec2);
 
-#[derive(Reflect, Component)]
+#[derive(Reflect, Component, Default)]
+#[reflect(Component)]
 struct Collider;
 
-#[derive(Default)]
+#[derive(Reflect, Default)]
 struct CollisionEvent;
 
-#[derive(Reflect, Component)]
+#[derive(Reflect, Component, Default)]
+#[reflect(Component)]
 struct Brick;
 
 // This bundle is a collection of the components that define a "wall" in our game
@@ -111,7 +108,6 @@ struct Brick;
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    #[bundle]
     sprite_bundle: SpriteBundle,
     collider: Collider,
 }
@@ -180,23 +176,27 @@ impl WallBundle {
 }
 
 // This resource tracks the game's score
-#[derive(Reflect)]
+#[derive(Reflect, Resource, Default)]
+#[reflect(Resource)]
 struct Scoreboard {
     score: usize,
 }
 
 // Add the game's entities to our world
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
     // Camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
-    commands
-        .spawn()
-        .insert(Paddle)
-        .insert_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
                 scale: PADDLE_SIZE,
@@ -207,28 +207,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        })
-        .insert(Collider);
+        },
+        Paddle,
+        Collider,
+    ));
 
     // Ball
-    commands
-        .spawn()
-        .insert(NotABallYet)
-        .insert_bundle(SpriteBundle {
-            transform: Transform {
-                scale: BALL_SIZE,
-                translation: BALL_STARTING_POSITION,
-                ..default()
-            },
-            sprite: Sprite {
-                color: BALL_COLOR,
-                ..default()
-            },
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(BALL_COLOR)),
+            transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
             ..default()
-        });
+        },
+        Ball,
+        Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
+    ));
 
     // Scoreboard
-    commands.spawn_bundle(
+    commands.spawn(
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -256,10 +253,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
 
     // Walls
-    commands.spawn_bundle(WallBundle::new(WallLocation::Left));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Right));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Bottom));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Top));
+    commands.spawn(WallBundle::new(WallLocation::Left));
+    commands.spawn(WallBundle::new(WallLocation::Right));
+    commands.spawn(WallBundle::new(WallLocation::Bottom));
+    commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
     // Negative scales result in flipped sprites / meshes,
@@ -301,10 +298,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             );
 
             // brick
-            commands
-                .spawn()
-                .insert(Brick)
-                .insert_bundle(SpriteBundle {
+            commands.spawn((
+                SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,
                         ..default()
@@ -315,8 +310,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     ..default()
-                })
-                .insert(Collider);
+                },
+                Brick,
+                Collider,
+            ));
         }
     }
 }
@@ -347,7 +344,7 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity), With<Ball>>) {
+fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
     for (mut transform, velocity) in &mut query {
         transform.translation.x += velocity.x * TIME_STEP;
         transform.translation.y += velocity.y * TIME_STEP;
@@ -366,11 +363,7 @@ fn check_for_collisions(
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
-    let (mut ball_velocity, ball_transform) = if let Ok(ball) = ball_query.get_single_mut() {
-        ball
-    } else {
-        return;
-    };
+    let (mut ball_velocity, ball_transform) = ball_query.single_mut();
     let ball_size = ball_transform.scale.truncate();
 
     // check collision with walls

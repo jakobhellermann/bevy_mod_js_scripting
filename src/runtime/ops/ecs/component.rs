@@ -1,6 +1,5 @@
 use anyhow::{format_err, Context};
-use bevy::prelude::{default, ReflectComponent};
-use bevy_reflect::TypeRegistryArc;
+use bevy::prelude::{default, AppTypeRegistry, ReflectComponent};
 
 use crate::{JsValueRef, JsValueRefs, OpContext};
 
@@ -30,7 +29,7 @@ pub fn ecs_component_insert(
         .clone();
 
     // Load the type registry
-    let type_registry = world.resource::<TypeRegistryArc>();
+    let type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = type_registry.read();
 
     // Clone the reflect value of the component
