@@ -12,7 +12,7 @@ pub mod types;
 mod value;
 
 pub fn insert_ecs_ops(ops: &mut OpMap) {
-    ops.insert("ecs_js", Box::new(EcsJs));
+    ops.insert("ecs.js", Box::new(EcsJs));
     ops.insert("ecs_world_to_string", Box::new(info::ecs_world_to_string));
     ops.insert("ecs_world_components", Box::new(info::ecs_world_components));
     ops.insert("ecs_world_resources", Box::new(info::ecs_world_resources));

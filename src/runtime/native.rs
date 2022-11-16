@@ -65,7 +65,7 @@ impl FromWorld for JsRuntime {
         let init_script_src = &include_str!("./js/native_setup.js")
             .replace("__OP_NAME_MAP_PLACEHOLDER__", &op_map_json);
         runtime
-            .execute_script("Bevy Mod JS Scripting", init_script_src)
+            .execute_script("bevy_mod_js_scripting", init_script_src)
             .expect("Init script failed");
 
         let state = runtime.op_state();
@@ -213,7 +213,33 @@ impl JsRuntimeApi for JsRuntime {
                 return;
             };
 
-            script_fn.call(scope, output.into(), &[]);
+            let tc_scope = &mut v8::TryCatch::new(scope);
+            script_fn.call(tc_scope, output.into(), &[]);
+            if let Some(message) = tc_scope.message() {
+                let mut stack_trace_message = String::new();
+                let stack_trace = message.get_stack_trace(tc_scope).unwrap();
+                for i in 0..stack_trace.get_frame_count() {
+                    let Some(frame) = stack_trace.get_frame(tc_scope, i) else { continue };
+                    let function_name = frame
+                        .get_function_name(tc_scope)
+                        .map(|name| name.to_rust_string_lossy(tc_scope));
+                    let script_name = frame
+                        .get_script_name(tc_scope)
+                        .map(|name| name.to_rust_string_lossy(tc_scope));
+                    stack_trace_message.push_str(&format!(
+                        "\n    at {} ({}:{}:{})",
+                        function_name.as_deref().unwrap_or("<unknown>"),
+                        script_name.as_deref().unwrap_or("<unknown>"),
+                        frame.get_line_number(),
+                        frame.get_column()
+                    ));
+                }
+
+                let message = message.get(tc_scope).to_rust_string_lossy(tc_scope);
+                let message = message.trim_end_matches("Uncought ");
+
+                error!("{message}{stack_trace_message}");
+            }
         });
     }
 
@@ -307,9 +333,7 @@ fn op_bevy_mod_js_scripting(
                 script_info,
                 type_registry: &*type_registry,
             };
-            return op
-                .run(context, &mut world, args)
-                .map_err(|e| anyhow::format_err!("Op Error: {:?}", e));
+            return op.run(context, &mut world, args);
         } else {
             error!("Invalid op index");
         }
