@@ -179,7 +179,7 @@
 
         // Instantiates the default value of a given bevy type
         create(type, patch) {
-            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type.typeName, patch));
+            return Value.wrapValueRef(bevyModJsScriptingOpSync("ecs_value_ref_default", type, patch));
         },
 
         patch(value, patch) {

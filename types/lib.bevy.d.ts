@@ -19,7 +19,7 @@ declare interface BevyScript {
 declare type RawValueRef = unknown;
 
 declare interface ValueGlobal {
-  create<T>(t: BevyType<T>, patch?: any): T;
+  create<T>(t: BevyType<T>, patch?: Partial<T>): T;
   patch<T>(value: any, patch: any): T;
 }
 

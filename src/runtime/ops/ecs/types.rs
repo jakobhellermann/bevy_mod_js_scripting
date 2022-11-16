@@ -1,4 +1,4 @@
-use std::{any::TypeId, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use anyhow::format_err;
 use bevy::{
@@ -8,7 +8,7 @@ use bevy::{
 use bevy_ecs_dynamic::reflect_value_ref::{
     EcsValueRef, ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
 };
-use bevy_reflect::{Reflect, TypeRegistry};
+use bevy_reflect::{Reflect, TypeRegistration, TypeRegistry};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectFunction};
 use serde::{Deserialize, Serialize};
 use slotmap::SlotMap;
@@ -99,6 +99,36 @@ impl ComponentIdOrBevyType {
                     .or_else(|| world.components().get_resource_id(type_id))
                     .ok_or_else(|| anyhow::anyhow!("`{type_name}` is not a component"))?;
                 Ok(component_id)
+            }
+        }
+    }
+    pub fn registration<'r>(
+        &self,
+        world: &World,
+        type_registry: &'r TypeRegistry,
+    ) -> Result<&'r TypeRegistration, anyhow::Error> {
+        match self {
+            ComponentIdOrBevyType::ComponentId(id) => {
+                let component_id = ComponentId::from(id);
+                let info = world.components().get_info(component_id).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "component `{component_id:?}` does not exist in the type registry"
+                    )
+                })?;
+                let type_id = info.type_id().ok_or_else(|| {
+                    anyhow::anyhow!("component `{component_id:?}` is not backed by a rust type",)
+                })?;
+                let registration = type_registry.get(type_id).ok_or_else(|| {
+                    anyhow::anyhow!("`{component_id:?}` does not exist in the type registry")
+                })?;
+
+                Ok(registration)
+            }
+            ComponentIdOrBevyType::Type { type_name } => {
+                let registration = type_registry.get_with_name(type_name).ok_or_else(|| {
+                    anyhow::anyhow!("`{type_name}` does not exist in the type registry")
+                })?;
+                Ok(registration)
             }
         }
     }

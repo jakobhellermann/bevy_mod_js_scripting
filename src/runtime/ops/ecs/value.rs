@@ -10,7 +10,8 @@ use crate::{runtime::OpContext, JsReflectFunctions, JsRuntimeOp};
 
 use super::{
     types::{
-        JsValueRef, JsValueRefs, Primitive, ReflectArgIntermediate, ReflectArgIntermediateValue,
+        ComponentIdOrBevyType, JsValueRef, JsValueRefs, Primitive, ReflectArgIntermediate,
+        ReflectArgIntermediateValue,
     },
     WithValueRefs,
 };
@@ -326,28 +327,27 @@ pub fn ecs_value_ref_to_string(
 
 pub fn ecs_value_ref_default(
     context: OpContext,
-    _: &mut World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
-    let (type_name, patch): (String, Option<serde_json::Value>) =
+    let (ty, patch): (ComponentIdOrBevyType, Option<serde_json::Value>) =
         serde_json::from_value(args).context("parse args")?;
+
+    let type_registration = ty.registration(world, context.type_registry)?;
 
     let value_refs = context
         .op_state
         .entry::<JsValueRefs>()
         .or_insert_with(default);
 
-    // Get the type registration for the named type
-    let type_registration = context
-        .type_registry
-        .get_with_name(&type_name)
-        .ok_or_else(|| format_err!("Type not registered: {type_name}"))?;
-
     // Get the default creator for the reflected type
-    let reflect_default = type_registration
-        .data::<ReflectDefault>()
-        .ok_or_else(|| format_err!("Type does not have ReflectDefault: {type_name}"))?;
+    let reflect_default = type_registration.data::<ReflectDefault>().ok_or_else(|| {
+        format_err!(
+            "Type does not have ReflectDefault: {}",
+            type_registration.type_name()
+        )
+    })?;
     let mut value = reflect_default.default();
 
     // Patch the default value if a patch is provided
