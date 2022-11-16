@@ -34,10 +34,10 @@ macro_rules! try_downcast_leaf_set {
         (|| {
             $(if let Some(value) = $value.downcast_mut::<$ty>() {
                 *value = serde_json::from_value($new_value)?;
-                return Ok(());
+                return Ok(true);
             })*
 
-            Ok::<(), anyhow::Error>(())
+            Ok::<bool, anyhow::Error>(false)
         })()
     };
 }
@@ -248,18 +248,19 @@ pub fn ecs_value_ref_set(
     let mut reflect = value_ref.get_mut(world).unwrap();
 
     // Try to store a primitive in the value
-    try_downcast_leaf_set!(reflect <- new_value for
+    let was_downcast = try_downcast_leaf_set!(reflect <- new_value for
         u8, u16, u32, u64, u128, usize,
         i8, i16, i32, i64, i128, isize,
         String, char, bool, f32, f64
-    )
-    .map(|_| serde_json::Value::Null)
-    .map_err(|e| {
-        format_err!(
-            "could not set value reference: type `{typename}` is not a primitive type: {e}",
-            typename = reflect.type_name(),
-        )
-    })
+    )?;
+    if !was_downcast {
+        return Err(format_err!(
+            "could not set value reference of type `{}`: you can only assign directly to primitives",
+            reflect.type_name(),
+        ));
+    }
+
+    Ok(serde_json::Value::Null)
 }
 
 pub fn ecs_value_ref_keys(
