@@ -35,9 +35,9 @@ function run() {
     info(score.score);
   }
 
-  let input = world.resource(Input(KeyCode))!;
-  let pressed = input.get_pressed();
-  info(pressed.toString());
+  // let input = world.resource(Input(KeyCode))!;
+  // let pressed = input.get_pressed();
+  // info(pressed.toString());
 
 
   if (firstIteration) {
