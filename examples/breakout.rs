@@ -1,5 +1,7 @@
 //! A simplified implementation of the classic game "Breakout".
 
+use std::any::TypeId;
+
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
@@ -7,6 +9,7 @@ use bevy::{
     time::FixedTimestep,
 };
 use bevy_mod_js_scripting::{AddJsSystem, JsScriptingPlugin};
+use bevy_reflect_fns::{reflect_function, ReflectMethods};
 
 // Defines the amount of time that should elapse between each physics step.
 const TIME_STEP: f32 = 1.0 / 60.0;
@@ -53,34 +56,67 @@ const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
 const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            watch_for_changes: true,
-            ..default()
-        }))
-        .add_plugin(JsScriptingPlugin)
-        .insert_resource(Scoreboard { score: 0 })
-        .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_startup_system(setup)
-        .add_event::<CollisionEvent>()
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(check_for_collisions)
-                .with_system(move_paddle.before(check_for_collisions))
-                .with_system(apply_velocity.before(check_for_collisions)),
-        )
-        .add_system(update_scoreboard)
-        .add_system(bevy::window::close_on_esc)
-        .add_js_system("scripts/breakout.ts")
-        .register_type::<Ball>()
-        .register_type::<Paddle>()
-        .register_type::<Velocity>()
-        .register_type::<Collider>()
-        .register_type::<Brick>()
-        .register_type::<Time>()
-        .register_type::<Scoreboard>()
-        .run();
+    let input_reflect_methods = ReflectMethods::from_methods([
+        (
+            "pressed",
+            reflect_function!(Input::<KeyCode>::pressed, (&Input<KeyCode>, KeyCode)),
+        ),
+        (
+            "just_pressed",
+            reflect_function!(Input::<KeyCode>::just_pressed, (&Input<KeyCode>, KeyCode)),
+        ),
+        (
+            "press",
+            reflect_function!(Input::<KeyCode>::press, (&mut Input<KeyCode>, KeyCode)),
+        ),
+        (
+            "get_pressed",
+            reflect_function!(
+                (|input: &Input<KeyCode>| {
+                    input.get_just_pressed().copied().collect::<Vec<_>>()
+                }),
+                (&Input<KeyCode>)
+            ),
+        ),
+    ]);
+
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(AssetPlugin {
+        watch_for_changes: true,
+        ..default()
+    }))
+    .add_plugin(JsScriptingPlugin)
+    .insert_resource(Scoreboard { score: 0 })
+    .insert_resource(ClearColor(BACKGROUND_COLOR))
+    .add_startup_system(setup)
+    .add_event::<CollisionEvent>()
+    .add_system_set(
+        SystemSet::new()
+            .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+            .with_system(check_for_collisions)
+            .with_system(move_paddle.before(check_for_collisions))
+            .with_system(apply_velocity.before(check_for_collisions)),
+    )
+    .add_system(update_scoreboard)
+    .add_system(bevy::window::close_on_esc)
+    .add_js_system("scripts/breakout.ts")
+    .register_type::<Ball>()
+    .register_type::<Paddle>()
+    .register_type::<Velocity>()
+    .register_type::<Collider>()
+    .register_type::<Brick>()
+    .register_type::<Time>()
+    .register_type::<Scoreboard>()
+    .register_type::<Input<KeyCode>>();
+
+    app.world
+        .resource_mut::<AppTypeRegistry>()
+        .write()
+        .get_mut(TypeId::of::<Input<KeyCode>>())
+        .unwrap()
+        .insert(input_reflect_methods);
+
+    app.run();
 }
 
 #[derive(Reflect, Component, Default)]
