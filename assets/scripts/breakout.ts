@@ -32,7 +32,7 @@ function run() {
   if (i % 60 == 0) {
     let score = world.resource(Scoreboard)!;
     score.score += 1;
-    info(score.score);
+    // info(score.score);
   }
 
   // let input = world.resource(Input(KeyCode))!;
@@ -43,9 +43,10 @@ function run() {
   if (firstIteration) {
     firstIteration = false;
 
-    let value = Value.create(Transform);
-    value.translation = { x: 1.0, y: 2.0, z: 10.0 };
-    info(value.toString());
+    // let value = Value.create(Transform, {
+    //   translation: { x: 5.0, y: 2.0 }
+    // });
+    // info(value.toString());
 
     /*for (const item of world.query(Transform, Velocity)) {
       let [transform, velocity] = item.components;
