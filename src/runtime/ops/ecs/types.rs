@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{any::TypeId, cell::RefCell, rc::Rc};
 
 use anyhow::format_err;
 use bevy::{
@@ -8,7 +8,7 @@ use bevy::{
 use bevy_ecs_dynamic::reflect_value_ref::{
     EcsValueRef, ReflectValueRef, ReflectValueRefBorrow, ReflectValueRefBorrowMut,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeRegistry};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectFunction};
 use serde::{Deserialize, Serialize};
 use slotmap::SlotMap;
@@ -81,11 +81,14 @@ pub enum ComponentIdOrBevyType {
 }
 
 impl ComponentIdOrBevyType {
-    pub fn component_id(&self, world: &World) -> Result<ComponentId, anyhow::Error> {
+    pub fn component_id(
+        &self,
+        world: &World,
+        type_registry: &TypeRegistry,
+    ) -> Result<ComponentId, anyhow::Error> {
         match self {
             ComponentIdOrBevyType::ComponentId(id) => Ok(ComponentId::from(id)),
             ComponentIdOrBevyType::Type { type_name } => {
-                let type_registry = world.resource::<AppTypeRegistry>().read();
                 let registration = type_registry.get_with_name(type_name).ok_or_else(|| {
                     anyhow::anyhow!("`{type_name}` does not exist in the type registry")
                 })?;

@@ -1,5 +1,5 @@
 use anyhow::{format_err, Context};
-use bevy::prelude::{default, AppTypeRegistry, ReflectComponent};
+use bevy::prelude::{default, ReflectComponent};
 
 use crate::{JsValueRef, JsValueRefs, OpContext};
 
@@ -28,23 +28,19 @@ pub fn ecs_component_insert(
         .ok_or_else(|| format_err!("Value ref doesn't exist"))?
         .clone();
 
-    // Load the type registry
-    let type_registry = world.resource::<AppTypeRegistry>();
-    let type_registry = type_registry.read();
-
     // Clone the reflect value of the component
     let reflect_value_ref = component_value_ref.get(world)?;
     let type_id = reflect_value_ref.type_id();
     let reflect_value = reflect_value_ref.clone_value();
 
     // Get the ReflectComponent
-    let reflect_component = type_registry
+    let reflect_component = context
+        .type_registry
         .get_type_data::<ReflectComponent>(type_id)
         .ok_or_else(|| format_err!("ReflectComponent not found for component value ref"))?
         .clone();
 
     // Drop our immutable borrow of the world
-    drop(type_registry);
     drop(reflect_value_ref);
 
     // Add the component to the entity

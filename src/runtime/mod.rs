@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use bevy::{prelude::*, utils::HashMap};
+use bevy_reflect::TypeRegistry;
 use type_map::TypeMap;
 
 use crate::asset::JsScript;
@@ -129,6 +130,7 @@ pub struct ScriptInfo {
 pub struct OpContext<'a> {
     pub op_state: &'a mut TypeMap,
     pub script_info: &'a ScriptInfo,
+    pub type_registry: &'a TypeRegistry,
 }
 pub trait JsRuntimeOp {
     /// Returns any extra JavaScript that should be executed when the runtime is initialized.

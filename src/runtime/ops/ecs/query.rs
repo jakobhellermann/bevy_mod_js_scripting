@@ -27,7 +27,7 @@ pub fn ecs_world_query_collect(
 
     let components: Vec<ComponentId> = descriptor
         .iter()
-        .map(|ty| ty.component_id(world))
+        .map(|ty| ty.component_id(world, context.type_registry))
         .collect::<Result<_, _>>()?;
 
     let mut query = EcsValueRefQuery::new(world, &components);
@@ -67,7 +67,7 @@ pub fn ecs_world_query_get(
 
     let components: Vec<ComponentId> = descriptor
         .iter()
-        .map(|ty| ty.component_id(world))
+        .map(|ty| ty.component_id(world, context.type_registry))
         .collect::<Result<_, _>>()?;
 
     let mut query = EcsValueRefQuery::new(world, &components);

@@ -18,7 +18,7 @@ pub fn ecs_world_get_resource(
 
     let (component_id,): (ComponentIdOrBevyType,) =
         serde_json::from_value(args).context("parse args")?;
-    let component_id = component_id.component_id(world)?;
+    let component_id = component_id.component_id(world, context.type_registry)?;
 
     let value_ref = EcsValueRef::resource(world, component_id)?;
 

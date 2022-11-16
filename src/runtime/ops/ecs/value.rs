@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use anyhow::{bail, format_err, Context};
-use bevy::prelude::{default, AppTypeRegistry, ReflectDefault, World};
+use bevy::prelude::{default, ReflectDefault, World};
 use bevy_ecs_dynamic::reflect_value_ref::ReflectValueRef;
 use bevy_reflect::{Reflect, ReflectRef};
 use bevy_reflect_fns::{PassMode, ReflectArg, ReflectMethods};
@@ -156,7 +156,7 @@ pub fn patch_reflect_with_json(
 
 pub fn ecs_value_ref_get(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     context
@@ -166,10 +166,6 @@ pub fn ecs_value_ref_get(
             let (value_ref, path): (JsValueRef, String) =
                 serde_json::from_value(args).context("parse args")?;
 
-            // Load the type registry
-            let type_registry = world.resource::<AppTypeRegistry>();
-            let type_registry = type_registry.read();
-
             // Get the reflect value ref from the JS argument
             let value_ref = value_refs
                 .get(value_ref.key)
@@ -177,8 +173,9 @@ pub fn ecs_value_ref_get(
                 .clone();
 
             // See if we can find any reflect methods for this type in the type registry
-            let reflect_methods =
-                type_registry.get_type_data::<ReflectMethods>(value_ref.get(world)?.type_id());
+            let reflect_methods = context
+                .type_registry
+                .get_type_data::<ReflectMethods>(value_ref.get(world)?.type_id());
 
             // If we found methods for this type
             if let Some(reflect_methods) = reflect_methods {
@@ -225,7 +222,7 @@ pub fn ecs_value_ref_get(
 
 pub fn ecs_value_ref_set(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
@@ -266,7 +263,7 @@ pub fn ecs_value_ref_set(
 
 pub fn ecs_value_ref_keys(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
@@ -306,7 +303,7 @@ pub fn ecs_value_ref_keys(
 
 pub fn ecs_value_ref_to_string(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
@@ -329,7 +326,7 @@ pub fn ecs_value_ref_to_string(
 
 pub fn ecs_value_ref_default(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    _: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
@@ -341,12 +338,9 @@ pub fn ecs_value_ref_default(
         .entry::<JsValueRefs>()
         .or_insert_with(default);
 
-    // Load the type registry
-    let type_registry = world.resource::<AppTypeRegistry>();
-    let type_registry = type_registry.read();
-
     // Get the type registration for the named type
-    let type_registration = type_registry
+    let type_registration = context
+        .type_registry
         .get_with_name(&type_name)
         .ok_or_else(|| format_err!("Type not registered: {type_name}"))?;
 
@@ -368,7 +362,7 @@ pub fn ecs_value_ref_default(
 
 pub fn ecs_value_ref_patch(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
@@ -394,7 +388,7 @@ pub fn ecs_value_ref_patch(
 
 pub fn ecs_value_ref_call(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args
@@ -498,7 +492,7 @@ pub fn ecs_value_ref_call(
 
 pub fn ecs_value_ref_eq(
     context: OpContext,
-    world: &mut bevy::prelude::World,
+    world: &mut World,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
     // Parse args

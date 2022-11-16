@@ -296,11 +296,16 @@ fn op_bevy_mod_js_scripting(
             let world = state
                 .resource_table
                 .get::<WorldResource>(WorldResource::RID)?;
+
             let mut world = world.world.borrow_mut();
+
+            let type_registry = world.resource::<AppTypeRegistry>().0.clone();
+            let type_registry = type_registry.read();
 
             let context = OpContext {
                 op_state: custom_op_state,
                 script_info,
+                type_registry: &*type_registry,
             };
             return op
                 .run(context, &mut world, args)
