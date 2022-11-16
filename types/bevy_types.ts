@@ -15,62 +15,21 @@ type u64 = number;
 type usize = number;
 type Cowstr = String;
 
-type Name = {
-  hash: number,
-  name: string,
+// bevy_animation
+type AnimationClip = {
+  curves: unknown,
+  duration: number,
 };
-
-const Name: BevyType<Name> = { typeName: "bevy_core::name::Name" };
-// core
-type Rangef32 = unknown;
-type Duration = unknown;
-
-const Rangef32: BevyType<Rangef32> = { typeName: "core::ops::range::Range<f32>" };
-const Duration: BevyType<Duration> = { typeName: "core::time::Duration" };
-// hashbrown
-type HashSetString = unknown;
-
-const HashSetString: BevyType<HashSetString> = { typeName: "hashbrown::set::HashSet<alloc::string::String>" };
-// bevy_math
-type Rect = {
-  min: Vec2,
-  max: Vec2,
-};
-
-const Rect: BevyType<Rect> = { typeName: "bevy_math::rect::Rect" };
-// std
-type Instant = unknown;
-
-const Instant: BevyType<Instant> = { typeName: "std::time::Instant" };
-// bevy_ecs
-type Entity = unknown;
-
-const Entity: BevyType<Entity> = { typeName: "bevy_ecs::entity::Entity" };
-// bevy_time
-type Stopwatch = {
-  elapsed: Duration,
+type AnimationPlayer = {
   paused: boolean,
-};
-type Time = {
-  delta: Duration,
-  last_update: Instant | null,
-  delta_seconds_f64: number,
-  delta_seconds: number,
-  seconds_since_startup: number,
-  time_since_startup: Duration,
-  startup: Instant,
-};
-type Timer = {
-  stopwatch: Stopwatch,
-  duration: Duration,
-  repeating: boolean,
-  finished: boolean,
-  times_finished_this_tick: number,
+  repeat: boolean,
+  speed: number,
+  elapsed: number,
+  animation_clip: HandleAnimationClip,
 };
 
-const Stopwatch: BevyType<Stopwatch> = { typeName: "bevy_time::stopwatch::Stopwatch" };
-const Time: BevyType<Time> = { typeName: "bevy_time::time::Time" };
-const Timer: BevyType<Timer> = { typeName: "bevy_time::timer::Timer" };
+const AnimationClip: BevyType<AnimationClip> = { typeName: "bevy_animation::AnimationClip" };
+const AnimationPlayer: BevyType<AnimationPlayer> = { typeName: "bevy_animation::AnimationPlayer" };
 // bevy_asset
 type HandleAnimationClip = {
   id: HandleId,
@@ -147,13 +106,20 @@ const HandleTextureAtlas: BevyType<HandleTextureAtlas> = { typeName: "bevy_asset
 const HandleFont: BevyType<HandleFont> = { typeName: "bevy_asset::handle::Handle<bevy_text::font::Font>" };
 const HandleFontAtlasSet: BevyType<HandleFontAtlasSet> = { typeName: "bevy_asset::handle::Handle<bevy_text::font_atlas_set::FontAtlasSet>" };
 const HandleId: BevyType<HandleId> = { typeName: "bevy_asset::handle::HandleId" };
-// bevy_gltf
-type GltfExtras = {
-  value: string,
+// bevy_core
+type Name = {
+  hash: number,
+  name: string,
 };
 
-const GltfExtras: BevyType<GltfExtras> = { typeName: "bevy_gltf::GltfExtras" };
+const Name: BevyType<Name> = { typeName: "bevy_core::name::Name" };
 // bevy_core_pipeline
+type BloomSettings = {
+  threshold: number,
+  knee: number,
+  scale: number,
+  intensity: number,
+};
 type ClearColor = unknown;
 type ClearColorConfig = unknown;
 type Camera2d = {
@@ -164,18 +130,153 @@ type Camera3d = {
   depth_load_op: Camera3dDepthLoadOp,
 };
 type Camera3dDepthLoadOp = unknown;
+type Tonemapping = unknown;
 
+const BloomSettings: BevyType<BloomSettings> = { typeName: "bevy_core_pipeline::bloom::BloomSettings" };
 const ClearColor: BevyType<ClearColor> = { typeName: "bevy_core_pipeline::clear_color::ClearColor" };
 const ClearColorConfig: BevyType<ClearColorConfig> = { typeName: "bevy_core_pipeline::clear_color::ClearColorConfig" };
 const Camera2d: BevyType<Camera2d> = { typeName: "bevy_core_pipeline::core_2d::camera_2d::Camera2d" };
 const Camera3d: BevyType<Camera3d> = { typeName: "bevy_core_pipeline::core_3d::camera_3d::Camera3d" };
 const Camera3dDepthLoadOp: BevyType<Camera3dDepthLoadOp> = { typeName: "bevy_core_pipeline::core_3d::camera_3d::Camera3dDepthLoadOp" };
+const Tonemapping: BevyType<Tonemapping> = { typeName: "bevy_core_pipeline::tonemapping::Tonemapping" };
+// bevy_ecs
+type Entity = unknown;
+
+const Entity: BevyType<Entity> = { typeName: "bevy_ecs::entity::Entity" };
+// bevy_gltf
+type GltfExtras = {
+  value: string,
+};
+
+const GltfExtras: BevyType<GltfExtras> = { typeName: "bevy_gltf::GltfExtras" };
+// bevy_hierarchy
+type Children = unknown;
+type Parent = unknown;
+
+const Children: BevyType<Children> = { typeName: "bevy_hierarchy::components::children::Children" };
+const Parent: BevyType<Parent> = { typeName: "bevy_hierarchy::components::parent::Parent" };
+// bevy_input
+type ButtonState = unknown;
+type AxisSettings = {
+  livezone_upperbound: number,
+  deadzone_upperbound: number,
+  deadzone_lowerbound: number,
+  livezone_lowerbound: number,
+  threshold: number,
+};
+type ButtonAxisSettings = {
+  high: number,
+  low: number,
+  threshold: number,
+};
+type ButtonSettings = {
+  press_threshold: number,
+  release_threshold: number,
+};
+type Gamepad = {
+  id: number,
+};
+type GamepadAxis = {
+  gamepad: Gamepad,
+  axis_type: GamepadAxisType,
+};
+type GamepadAxisType = unknown;
+type GamepadButton = {
+  gamepad: Gamepad,
+  button_type: GamepadButtonType,
+};
+type GamepadButtonType = unknown;
+type GamepadEvent = {
+  gamepad: Gamepad,
+  event_type: GamepadEventType,
+};
+type GamepadEventRaw = {
+  gamepad: Gamepad,
+  event_type: GamepadEventType,
+};
+type GamepadEventType = unknown;
+type GamepadSettings = {
+  default_button_settings: ButtonSettings,
+  default_axis_settings: AxisSettings,
+  default_button_axis_settings: ButtonAxisSettings,
+  button_settings: HashMapGamepadButtonButtonSettings,
+  axis_settings: HashMapGamepadAxisAxisSettings,
+  button_axis_settings: HashMapGamepadButtonButtonAxisSettings,
+};
+type KeyCode = unknown;
+type KeyboardInput = {
+  scan_code: number,
+  key_code: KeyCode | null,
+  state: ButtonState,
+};
+type ScanCode = unknown;
+type MouseButton = unknown;
+type MouseButtonInput = {
+  button: MouseButton,
+  state: ButtonState,
+};
+type MouseMotion = {
+  delta: Vec2,
+};
+type MouseScrollUnit = unknown;
+type MouseWheel = {
+  unit: MouseScrollUnit,
+  x: number,
+  y: number,
+};
+type ForceTouch = unknown;
+type TouchInput = {
+  phase: TouchPhase,
+  position: Vec2,
+  force: ForceTouch | null,
+  id: number,
+};
+type TouchPhase = unknown;
+
+const ButtonState: BevyType<ButtonState> = { typeName: "bevy_input::ButtonState" };
+const AxisSettings: BevyType<AxisSettings> = { typeName: "bevy_input::gamepad::AxisSettings" };
+const ButtonAxisSettings: BevyType<ButtonAxisSettings> = { typeName: "bevy_input::gamepad::ButtonAxisSettings" };
+const ButtonSettings: BevyType<ButtonSettings> = { typeName: "bevy_input::gamepad::ButtonSettings" };
+const Gamepad: BevyType<Gamepad> = { typeName: "bevy_input::gamepad::Gamepad" };
+const GamepadAxis: BevyType<GamepadAxis> = { typeName: "bevy_input::gamepad::GamepadAxis" };
+const GamepadAxisType: BevyType<GamepadAxisType> = { typeName: "bevy_input::gamepad::GamepadAxisType" };
+const GamepadButton: BevyType<GamepadButton> = { typeName: "bevy_input::gamepad::GamepadButton" };
+const GamepadButtonType: BevyType<GamepadButtonType> = { typeName: "bevy_input::gamepad::GamepadButtonType" };
+const GamepadEvent: BevyType<GamepadEvent> = { typeName: "bevy_input::gamepad::GamepadEvent" };
+const GamepadEventRaw: BevyType<GamepadEventRaw> = { typeName: "bevy_input::gamepad::GamepadEventRaw" };
+const GamepadEventType: BevyType<GamepadEventType> = { typeName: "bevy_input::gamepad::GamepadEventType" };
+const GamepadSettings: BevyType<GamepadSettings> = { typeName: "bevy_input::gamepad::GamepadSettings" };
+const KeyCode: BevyType<KeyCode> = { typeName: "bevy_input::keyboard::KeyCode" };
+const KeyboardInput: BevyType<KeyboardInput> = { typeName: "bevy_input::keyboard::KeyboardInput" };
+const ScanCode: BevyType<ScanCode> = { typeName: "bevy_input::keyboard::ScanCode" };
+const MouseButton: BevyType<MouseButton> = { typeName: "bevy_input::mouse::MouseButton" };
+const MouseButtonInput: BevyType<MouseButtonInput> = { typeName: "bevy_input::mouse::MouseButtonInput" };
+const MouseMotion: BevyType<MouseMotion> = { typeName: "bevy_input::mouse::MouseMotion" };
+const MouseScrollUnit: BevyType<MouseScrollUnit> = { typeName: "bevy_input::mouse::MouseScrollUnit" };
+const MouseWheel: BevyType<MouseWheel> = { typeName: "bevy_input::mouse::MouseWheel" };
+const ForceTouch: BevyType<ForceTouch> = { typeName: "bevy_input::touch::ForceTouch" };
+const TouchInput: BevyType<TouchInput> = { typeName: "bevy_input::touch::TouchInput" };
+const TouchPhase: BevyType<TouchPhase> = { typeName: "bevy_input::touch::TouchPhase" };
+// bevy_math
+type Rect = {
+  min: Vec2,
+  max: Vec2,
+};
+
+const Rect: BevyType<Rect> = { typeName: "bevy_math::rect::Rect" };
 // bevy_pbr
+type AlphaMode = unknown;
 type CubemapVisibleEntities = {
 };
 type AmbientLight = {
   color: Color,
   brightness: number,
+};
+type ClusterConfig = unknown;
+type ClusterFarZMode = unknown;
+type ClusterZConfig = {
+  first_slice_depth: number,
+  far_z_mode: ClusterFarZMode,
 };
 type DirectionalLight = {
   color: Color,
@@ -211,19 +312,42 @@ type SpotLight = {
   outer_angle: number,
   inner_angle: number,
 };
+type StandardMaterial = {
+  base_color: Color,
+  base_color_texture: HandleImage | null,
+  emissive: Color,
+  emissive_texture: HandleImage | null,
+  perceptual_roughness: number,
+  metallic: number,
+  metallic_roughness_texture: HandleImage | null,
+  reflectance: number,
+  normal_map_texture: HandleImage | null,
+  flip_normal_map_y: boolean,
+  occlusion_texture: HandleImage | null,
+  double_sided: boolean,
+  unlit: boolean,
+  alpha_mode: AlphaMode,
+  depth_bias: number,
+};
 
+const AlphaMode: BevyType<AlphaMode> = { typeName: "bevy_pbr::alpha::AlphaMode" };
 const CubemapVisibleEntities: BevyType<CubemapVisibleEntities> = { typeName: "bevy_pbr::bundle::CubemapVisibleEntities" };
 const AmbientLight: BevyType<AmbientLight> = { typeName: "bevy_pbr::light::AmbientLight" };
+const ClusterConfig: BevyType<ClusterConfig> = { typeName: "bevy_pbr::light::ClusterConfig" };
+const ClusterFarZMode: BevyType<ClusterFarZMode> = { typeName: "bevy_pbr::light::ClusterFarZMode" };
+const ClusterZConfig: BevyType<ClusterZConfig> = { typeName: "bevy_pbr::light::ClusterZConfig" };
 const DirectionalLight: BevyType<DirectionalLight> = { typeName: "bevy_pbr::light::DirectionalLight" };
 const DirectionalLightShadowMap: BevyType<DirectionalLightShadowMap> = { typeName: "bevy_pbr::light::DirectionalLightShadowMap" };
 const PointLight: BevyType<PointLight> = { typeName: "bevy_pbr::light::PointLight" };
 const PointLightShadowMap: BevyType<PointLightShadowMap> = { typeName: "bevy_pbr::light::PointLightShadowMap" };
 const SpotLight: BevyType<SpotLight> = { typeName: "bevy_pbr::light::SpotLight" };
+const StandardMaterial: BevyType<StandardMaterial> = { typeName: "bevy_pbr::pbr_material::StandardMaterial" };
 // bevy_render
 type Camera = {
   viewport: Viewport | null,
   priority: number,
   is_active: boolean,
+  hdr: boolean,
 };
 type CameraRenderGraph = unknown;
 type Viewport = {
@@ -264,6 +388,7 @@ type CubemapFrusta = {
 };
 type Frustum = {
 };
+type Image = unknown;
 type Msaa = {
   samples: number,
 };
@@ -276,6 +401,7 @@ type Visibility = {
 };
 type VisibleEntities = {
 };
+type RenderLayers = unknown;
 
 const Camera: BevyType<Camera> = { typeName: "bevy_render::camera::camera::Camera" };
 const CameraRenderGraph: BevyType<CameraRenderGraph> = { typeName: "bevy_render::camera::camera::CameraRenderGraph" };
@@ -290,11 +416,17 @@ const SkinnedMesh: BevyType<SkinnedMesh> = { typeName: "bevy_render::mesh::mesh:
 const Aabb: BevyType<Aabb> = { typeName: "bevy_render::primitives::Aabb" };
 const CubemapFrusta: BevyType<CubemapFrusta> = { typeName: "bevy_render::primitives::CubemapFrusta" };
 const Frustum: BevyType<Frustum> = { typeName: "bevy_render::primitives::Frustum" };
+const Image: BevyType<Image> = { typeName: "bevy_render::texture::image::Image" };
 const Msaa: BevyType<Msaa> = { typeName: "bevy_render::view::Msaa" };
 const ComputedVisibility: BevyType<ComputedVisibility> = { typeName: "bevy_render::view::visibility::ComputedVisibility" };
 const Visibility: BevyType<Visibility> = { typeName: "bevy_render::view::visibility::Visibility" };
 const VisibleEntities: BevyType<VisibleEntities> = { typeName: "bevy_render::view::visibility::VisibleEntities" };
+const RenderLayers: BevyType<RenderLayers> = { typeName: "bevy_render::view::visibility::render_layers::RenderLayers" };
 // bevy_sprite
+type ColorMaterial = {
+  color: Color,
+  texture: HandleImage | null,
+};
 type Mesh2dHandle = unknown;
 type Anchor = unknown;
 type Sprite = {
@@ -305,16 +437,18 @@ type Sprite = {
   rect: Rect | null,
   anchor: Anchor,
 };
+type TextureAtlas = {
+  texture: HandleImage,
+  size: Vec2,
+  textures: Rect[],
+  texture_handles: HashMapHandleImageusize | null,
+};
 
+const ColorMaterial: BevyType<ColorMaterial> = { typeName: "bevy_sprite::mesh2d::color_material::ColorMaterial" };
 const Mesh2dHandle: BevyType<Mesh2dHandle> = { typeName: "bevy_sprite::mesh2d::mesh::Mesh2dHandle" };
 const Anchor: BevyType<Anchor> = { typeName: "bevy_sprite::sprite::Anchor" };
 const Sprite: BevyType<Sprite> = { typeName: "bevy_sprite::sprite::Sprite" };
-// bevy_hierarchy
-type Children = unknown;
-type Parent = unknown;
-
-const Children: BevyType<Children> = { typeName: "bevy_hierarchy::components::children::Children" };
-const Parent: BevyType<Parent> = { typeName: "bevy_hierarchy::components::parent::Parent" };
+const TextureAtlas: BevyType<TextureAtlas> = { typeName: "bevy_sprite::texture_atlas::TextureAtlas" };
 // bevy_text
 type HorizontalAlign = unknown;
 type Text = {
@@ -342,6 +476,147 @@ const TextAlignment: BevyType<TextAlignment> = { typeName: "bevy_text::text::Tex
 const TextSection: BevyType<TextSection> = { typeName: "bevy_text::text::TextSection" };
 const TextStyle: BevyType<TextStyle> = { typeName: "bevy_text::text::TextStyle" };
 const VerticalAlign: BevyType<VerticalAlign> = { typeName: "bevy_text::text::VerticalAlign" };
+// bevy_time
+type Stopwatch = {
+  elapsed: Duration,
+  paused: boolean,
+};
+type Time = {
+  startup: Instant,
+  first_update: Instant | null,
+  last_update: Instant | null,
+  paused: boolean,
+  relative_speed: number,
+  delta: Duration,
+  delta_seconds: number,
+  delta_seconds_f64: number,
+  elapsed: Duration,
+  elapsed_seconds: number,
+  elapsed_seconds_f64: number,
+  raw_delta: Duration,
+  raw_delta_seconds: number,
+  raw_delta_seconds_f64: number,
+  raw_elapsed: Duration,
+  raw_elapsed_seconds: number,
+  raw_elapsed_seconds_f64: number,
+  wrap_period: Duration,
+  elapsed_wrapped: Duration,
+  elapsed_seconds_wrapped: number,
+  elapsed_seconds_wrapped_f64: number,
+  raw_elapsed_wrapped: Duration,
+  raw_elapsed_seconds_wrapped: number,
+  raw_elapsed_seconds_wrapped_f64: number,
+};
+type Timer = {
+  stopwatch: Stopwatch,
+  duration: Duration,
+  mode: TimerMode,
+  finished: boolean,
+  times_finished_this_tick: number,
+};
+type TimerMode = unknown;
+
+const Stopwatch: BevyType<Stopwatch> = { typeName: "bevy_time::stopwatch::Stopwatch" };
+const Time: BevyType<Time> = { typeName: "bevy_time::time::Time" };
+const Timer: BevyType<Timer> = { typeName: "bevy_time::timer::Timer" };
+const TimerMode: BevyType<TimerMode> = { typeName: "bevy_time::timer::TimerMode" };
+// bevy_transform
+type GlobalTransform = unknown;
+type Transform = {
+  translation: Vec3,
+  rotation: Quat,
+  scale: Vec3,
+};
+
+const GlobalTransform: BevyType<GlobalTransform> = { typeName: "bevy_transform::components::global_transform::GlobalTransform" };
+const Transform: BevyType<Transform> = { typeName: "bevy_transform::components::transform::Transform" };
+// bevy_ui
+type FocusPolicy = unknown;
+type Interaction = unknown;
+type Size = {
+  width: Val,
+  height: Val,
+};
+type UiRect = {
+  left: Val,
+  right: Val,
+  top: Val,
+  bottom: Val,
+};
+type AlignContent = unknown;
+type AlignItems = unknown;
+type AlignSelf = unknown;
+type BackgroundColor = unknown;
+type CalculatedSize = {
+  size: Size,
+};
+type Direction = unknown;
+type Display = unknown;
+type FlexDirection = unknown;
+type FlexWrap = unknown;
+type JustifyContent = unknown;
+type Node = {
+  calculated_size: Vec2,
+};
+type Overflow = unknown;
+type PositionType = unknown;
+type Style = {
+  display: Display,
+  position_type: PositionType,
+  direction: Direction,
+  flex_direction: FlexDirection,
+  flex_wrap: FlexWrap,
+  align_items: AlignItems,
+  align_self: AlignSelf,
+  align_content: AlignContent,
+  justify_content: JustifyContent,
+  position: UiRect,
+  margin: UiRect,
+  padding: UiRect,
+  border: UiRect,
+  flex_grow: number,
+  flex_shrink: number,
+  flex_basis: Val,
+  size: Size,
+  min_size: Size,
+  max_size: Size,
+  aspect_ratio: number | null,
+  overflow: Overflow,
+};
+type UiImage = unknown;
+type Val = unknown;
+type Button = {
+};
+type ImageMode = unknown;
+
+const FocusPolicy: BevyType<FocusPolicy> = { typeName: "bevy_ui::focus::FocusPolicy" };
+const Interaction: BevyType<Interaction> = { typeName: "bevy_ui::focus::Interaction" };
+const Size: BevyType<Size> = { typeName: "bevy_ui::geometry::Size" };
+const UiRect: BevyType<UiRect> = { typeName: "bevy_ui::geometry::UiRect" };
+const AlignContent: BevyType<AlignContent> = { typeName: "bevy_ui::ui_node::AlignContent" };
+const AlignItems: BevyType<AlignItems> = { typeName: "bevy_ui::ui_node::AlignItems" };
+const AlignSelf: BevyType<AlignSelf> = { typeName: "bevy_ui::ui_node::AlignSelf" };
+const BackgroundColor: BevyType<BackgroundColor> = { typeName: "bevy_ui::ui_node::BackgroundColor" };
+const CalculatedSize: BevyType<CalculatedSize> = { typeName: "bevy_ui::ui_node::CalculatedSize" };
+const Direction: BevyType<Direction> = { typeName: "bevy_ui::ui_node::Direction" };
+const Display: BevyType<Display> = { typeName: "bevy_ui::ui_node::Display" };
+const FlexDirection: BevyType<FlexDirection> = { typeName: "bevy_ui::ui_node::FlexDirection" };
+const FlexWrap: BevyType<FlexWrap> = { typeName: "bevy_ui::ui_node::FlexWrap" };
+const JustifyContent: BevyType<JustifyContent> = { typeName: "bevy_ui::ui_node::JustifyContent" };
+const Node: BevyType<Node> = { typeName: "bevy_ui::ui_node::Node" };
+const Overflow: BevyType<Overflow> = { typeName: "bevy_ui::ui_node::Overflow" };
+const PositionType: BevyType<PositionType> = { typeName: "bevy_ui::ui_node::PositionType" };
+const Style: BevyType<Style> = { typeName: "bevy_ui::ui_node::Style" };
+const UiImage: BevyType<UiImage> = { typeName: "bevy_ui::ui_node::UiImage" };
+const Val: BevyType<Val> = { typeName: "bevy_ui::ui_node::Val" };
+const Button: BevyType<Button> = { typeName: "bevy_ui::widget::button::Button" };
+const ImageMode: BevyType<ImageMode> = { typeName: "bevy_ui::widget::image::ImageMode" };
+// core
+type Rangef32 = unknown;
+type Duration = unknown;
+
+const Rangef32: BevyType<Rangef32> = { typeName: "core::ops::range::Range<f32>" };
+const Duration: BevyType<Duration> = { typeName: "core::time::Duration" };
 // glam
 type BVec2 = {
   x: boolean,
@@ -510,104 +785,19 @@ const IVec4: BevyType<IVec4> = { typeName: "glam::i32::ivec4::IVec4" };
 const UVec2: BevyType<UVec2> = { typeName: "glam::u32::uvec2::UVec2" };
 const UVec3: BevyType<UVec3> = { typeName: "glam::u32::uvec3::UVec3" };
 const UVec4: BevyType<UVec4> = { typeName: "glam::u32::uvec4::UVec4" };
-// bevy_transform
-type GlobalTransform = unknown;
-type Transform = {
-  translation: Vec3,
-  rotation: Quat,
-  scale: Vec3,
-};
+// hashbrown
+type HashMapHandleImageusize = unknown;
+type HashMapGamepadAxisAxisSettings = unknown;
+type HashMapGamepadButtonButtonAxisSettings = unknown;
+type HashMapGamepadButtonButtonSettings = unknown;
+type HashSetString = unknown;
 
-const GlobalTransform: BevyType<GlobalTransform> = { typeName: "bevy_transform::components::global_transform::GlobalTransform" };
-const Transform: BevyType<Transform> = { typeName: "bevy_transform::components::transform::Transform" };
-// bevy_animation
-type AnimationPlayer = {
-  paused: boolean,
-  repeat: boolean,
-  speed: number,
-  elapsed: number,
-  animation_clip: HandleAnimationClip,
-};
+const HashMapHandleImageusize: BevyType<HashMapHandleImageusize> = { typeName: "hashbrown::map::HashMap<bevy_asset::handle::Handle<bevy_render::texture::image::Image>, usize>" };
+const HashMapGamepadAxisAxisSettings: BevyType<HashMapGamepadAxisAxisSettings> = { typeName: "hashbrown::map::HashMap<bevy_input::gamepad::GamepadAxis, bevy_input::gamepad::AxisSettings>" };
+const HashMapGamepadButtonButtonAxisSettings: BevyType<HashMapGamepadButtonButtonAxisSettings> = { typeName: "hashbrown::map::HashMap<bevy_input::gamepad::GamepadButton, bevy_input::gamepad::ButtonAxisSettings>" };
+const HashMapGamepadButtonButtonSettings: BevyType<HashMapGamepadButtonButtonSettings> = { typeName: "hashbrown::map::HashMap<bevy_input::gamepad::GamepadButton, bevy_input::gamepad::ButtonSettings>" };
+const HashSetString: BevyType<HashSetString> = { typeName: "hashbrown::set::HashSet<alloc::string::String>" };
+// std
+type Instant = unknown;
 
-const AnimationPlayer: BevyType<AnimationPlayer> = { typeName: "bevy_animation::AnimationPlayer" };
-// bevy_ui
-type FocusPolicy = unknown;
-type Interaction = unknown;
-type Size = {
-  width: Val,
-  height: Val,
-};
-type UiRect = {
-  left: Val,
-  right: Val,
-  top: Val,
-  bottom: Val,
-};
-type AlignContent = unknown;
-type AlignItems = unknown;
-type AlignSelf = unknown;
-type CalculatedSize = {
-  size: Size,
-};
-type Direction = unknown;
-type Display = unknown;
-type FlexDirection = unknown;
-type FlexWrap = unknown;
-type JustifyContent = unknown;
-type Node = {
-  size: Vec2,
-};
-type Overflow = unknown;
-type PositionType = unknown;
-type Style = {
-  display: Display,
-  position_type: PositionType,
-  direction: Direction,
-  flex_direction: FlexDirection,
-  flex_wrap: FlexWrap,
-  align_items: AlignItems,
-  align_self: AlignSelf,
-  align_content: AlignContent,
-  justify_content: JustifyContent,
-  position: UiRect,
-  margin: UiRect,
-  padding: UiRect,
-  border: UiRect,
-  flex_grow: number,
-  flex_shrink: number,
-  flex_basis: Val,
-  size: Size,
-  min_size: Size,
-  max_size: Size,
-  aspect_ratio: number | null,
-  overflow: Overflow,
-};
-type UiColor = unknown;
-type UiImage = unknown;
-type Val = unknown;
-type Button = {
-};
-type ImageMode = unknown;
-
-const FocusPolicy: BevyType<FocusPolicy> = { typeName: "bevy_ui::focus::FocusPolicy" };
-const Interaction: BevyType<Interaction> = { typeName: "bevy_ui::focus::Interaction" };
-const Size: BevyType<Size> = { typeName: "bevy_ui::geometry::Size" };
-const UiRect: BevyType<UiRect> = { typeName: "bevy_ui::geometry::UiRect" };
-const AlignContent: BevyType<AlignContent> = { typeName: "bevy_ui::ui_node::AlignContent" };
-const AlignItems: BevyType<AlignItems> = { typeName: "bevy_ui::ui_node::AlignItems" };
-const AlignSelf: BevyType<AlignSelf> = { typeName: "bevy_ui::ui_node::AlignSelf" };
-const CalculatedSize: BevyType<CalculatedSize> = { typeName: "bevy_ui::ui_node::CalculatedSize" };
-const Direction: BevyType<Direction> = { typeName: "bevy_ui::ui_node::Direction" };
-const Display: BevyType<Display> = { typeName: "bevy_ui::ui_node::Display" };
-const FlexDirection: BevyType<FlexDirection> = { typeName: "bevy_ui::ui_node::FlexDirection" };
-const FlexWrap: BevyType<FlexWrap> = { typeName: "bevy_ui::ui_node::FlexWrap" };
-const JustifyContent: BevyType<JustifyContent> = { typeName: "bevy_ui::ui_node::JustifyContent" };
-const Node: BevyType<Node> = { typeName: "bevy_ui::ui_node::Node" };
-const Overflow: BevyType<Overflow> = { typeName: "bevy_ui::ui_node::Overflow" };
-const PositionType: BevyType<PositionType> = { typeName: "bevy_ui::ui_node::PositionType" };
-const Style: BevyType<Style> = { typeName: "bevy_ui::ui_node::Style" };
-const UiColor: BevyType<UiColor> = { typeName: "bevy_ui::ui_node::UiColor" };
-const UiImage: BevyType<UiImage> = { typeName: "bevy_ui::ui_node::UiImage" };
-const Val: BevyType<Val> = { typeName: "bevy_ui::ui_node::Val" };
-const Button: BevyType<Button> = { typeName: "bevy_ui::widget::button::Button" };
-const ImageMode: BevyType<ImageMode> = { typeName: "bevy_ui::widget::image::ImageMode" };
+const Instant: BevyType<Instant> = { typeName: "std::time::Instant" };
