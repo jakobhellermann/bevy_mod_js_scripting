@@ -90,11 +90,12 @@
             return r[0] && Value.wrapValueRef(r[0]);
         }
 
-        insert(entity, component) {
+        insert(entity, component, value) {
             bevyModJsScriptingOpSync(
                 "ecs_component_insert",
                 Value.unwrapValueRef(entity),
-                Value.unwrapValueRef(component)
+                component,
+                Value.unwrapValueRef(value)
             );
         }
     }

@@ -51,7 +51,11 @@ impl JsValueRef {
     }
 
     /// If this value ref represents an [`Entity`] get it. Returns an error if it is not an entity.
-    pub fn get_entity(&self, world: &World, value_refs: &JsValueRefs) -> anyhow::Result<Entity> {
+    pub fn get_downcast_copy<T: Reflect + Copy>(
+        &self,
+        world: &World,
+        value_refs: &JsValueRefs,
+    ) -> anyhow::Result<T> {
         let value_ref: &ReflectValueRef = value_refs
             .get(self.key)
             .ok_or_else(|| format_err!("Value ref doesn't exist"))?;

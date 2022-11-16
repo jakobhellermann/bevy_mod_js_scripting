@@ -63,7 +63,7 @@ pub fn ecs_world_query_get(
 
     let (entity_value_ref, descriptor): (JsValueRef, QueryDescriptor) =
         serde_json::from_value(args).context("component query")?;
-    let entity: Entity = entity_value_ref.get_entity(world, value_refs)?;
+    let entity = entity_value_ref.get_downcast_copy::<Entity>(world, value_refs)?;
 
     let components: Vec<ComponentId> = descriptor
         .iter()
