@@ -368,18 +368,19 @@ pub fn ecs_value_ref_set(
         let mut reflect = value_ref.get_mut(world)?;
 
         // Try to store a primitive in the value
-        try_downcast_leaf_set!(reflect <- new_value for
+        let downcast_to_primitive = try_downcast_leaf_set!(reflect <- new_value for
             u8, u16, u32, u64, u128, usize,
             i8, i16, i32, i64, i128, isize,
             String, char, bool, f32, f64
-        )
-        .map_err(|e| {
-            format_err!(
-                "could not set value reference: type `{type_name}` is not a primitive \
-                type or value ref: {e}",
+        )?;
+        if !downcast_to_primitive {
+            Err(format_err!(
+                "could not set value reference: type `{type_name}` is not a primitive type",
                 type_name = reflect.type_name(),
-            )
-        })
+            ))
+        } else {
+            Ok(())
+        }
     };
 
     // If we could not assign a primitive
