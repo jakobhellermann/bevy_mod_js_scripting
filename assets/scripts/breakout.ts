@@ -43,6 +43,10 @@ function run() {
   if (firstIteration) {
     firstIteration = false;
 
+    let value = Value.create(Transform);
+    value.translation = { x: 1.0, y: 2.0, z: 10.0 };
+    info(value.toString());
+
     /*for (const item of world.query(Transform, Velocity)) {
       let [transform, velocity] = item.components;
 
