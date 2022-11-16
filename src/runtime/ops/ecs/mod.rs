@@ -51,7 +51,7 @@ pub fn insert_ecs_ops(ops: &mut OpMap) {
 struct EcsJs;
 impl JsRuntimeOp for EcsJs {
     fn js(&self) -> Option<&'static str> {
-        Some(include_str!("./ecs/ecs.js"))
+        Some(include_str!("./ecs.js"))
     }
 }
 

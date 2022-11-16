@@ -54,7 +54,10 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            watch_for_changes: true,
+            ..default()
+        }))
         .add_plugin(JsScriptingPlugin)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))

@@ -1,8 +1,4 @@
-declare namespace Deno {
-  namespace core {
-    function opSync(op: string, ...args: any[]): any;
-  }
-}
+declare function bevyModJsScriptingOpSync(op: string, ...args: any[]): unknown;
 
 // log.s
 declare function trace(...args: any): void;
