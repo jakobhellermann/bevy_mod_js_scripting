@@ -9,9 +9,10 @@ function run() {
     // info("Entitites: " + (world.entities.map(entity => `Entity(${entity.id}v${entity.generation})`).join(", ")));
 
     let query = world.query(Transform);
-    let [translation1, translation2] = query.map((item) => item.components[0].translation);
-    for (const s of [0.0, 0.25, 0.5, 0.75, 1.0]) {
-      info(translation1.lerp(translation2, s).toString());
+    for (const item of query) {
+      let [transform] = item.components;
+      let target = Value.create(Vec3, { x: 100, y: 100, z: 100 });
+      info(transform.translation.lerp(target, 0.5).toString());
     }
   }
 }
