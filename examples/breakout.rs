@@ -59,15 +59,15 @@ fn main() {
     let input_reflect_methods = ReflectMethods::from_methods([
         (
             "pressed",
-            reflect_function!(Input::<KeyCode>::pressed, (&Input<KeyCode>, KeyCode)),
+            reflect_function!(Input::<KeyCode>::pressed, (&Input<KeyCode>, KeyCode) -> bool),
         ),
         (
             "just_pressed",
-            reflect_function!(Input::<KeyCode>::just_pressed, (&Input<KeyCode>, KeyCode)),
+            reflect_function!(Input::<KeyCode>::just_pressed, (&Input<KeyCode>, KeyCode) -> bool),
         ),
         (
             "press",
-            reflect_function!(Input::<KeyCode>::press, (&mut Input<KeyCode>, KeyCode)),
+            reflect_function!(Input::<KeyCode>::press, (&mut Input<KeyCode>, KeyCode) -> ()),
         ),
         (
             "get_pressed",
@@ -75,7 +75,7 @@ fn main() {
                 (|input: &Input<KeyCode>| {
                     input.get_just_pressed().copied().collect::<Vec<_>>()
                 }),
-                (&Input<KeyCode>)
+                (&Input<KeyCode>) -> Vec<KeyCode>
             ),
         ),
     ]);

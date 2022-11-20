@@ -322,7 +322,7 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_dynamic"
 version = "0.1.0"
-source = "git+https://github.com/jakobhellermann/bevy_ecs_dynamic?rev=b305b44ee1f5748ee3607d439b5914c466312f8e#b305b44ee1f5748ee3607d439b5914c466312f8e"
+source = "git+https://github.com/jakobhellermann/bevy_ecs_dynamic?rev=dc68a95#dc68a95ad94ec69570c19c734ba5710913cb6465"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -584,7 +584,7 @@ dependencies = [
 [[package]]
 name = "bevy_reflect_fns"
 version = "0.1.0"
-source = "git+https://github.com/jakobhellermann/bevy_reflect_fns?rev=cf995be691e568ccc0ef663d2383ff3ebf1055e5#cf995be691e568ccc0ef663d2383ff3ebf1055e5"
+source = "git+https://github.com/jakobhellermann/bevy_reflect_fns?rev=bb28740#bb287401a59e851dc04bdea90ddce8285c112417"
 dependencies = [
  "bevy_reflect",
  "thiserror",
