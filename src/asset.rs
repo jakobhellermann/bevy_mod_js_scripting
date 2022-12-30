@@ -6,7 +6,7 @@ use bevy::{
 };
 use bevy_reflect::TypeUuid;
 
-#[derive(TypeUuid, Resource)]
+#[derive(TypeUuid)]
 #[uuid = "34186503-91f4-4afa-99fc-c0c3688a9439"]
 pub struct JsScript {
     pub source: String,
