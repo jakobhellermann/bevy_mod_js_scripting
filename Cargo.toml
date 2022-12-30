@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.57"
-bevy = { version = "0.9.0", default-features = false, features = ["bevy_asset"] }
-bevy_reflect = "0.9.0"
+bevy = { version = "0.9", default-features = false, features = ["bevy_asset"] }
+bevy_reflect = "0.9"
 fixedbitset = "0.4"
 slotmap = { version = "1.0.6", features = ["serde"] }
 pollster = "0.2.5"
