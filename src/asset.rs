@@ -1,9 +1,6 @@
 use std::path::PathBuf;
 
-use bevy::{
-    asset::{AssetLoader, BoxedFuture, LoadedAsset},
-    prelude::Resource,
-};
+use bevy::asset::{AssetLoader, BoxedFuture, LoadedAsset};
 use bevy_reflect::TypeUuid;
 
 #[derive(TypeUuid)]
