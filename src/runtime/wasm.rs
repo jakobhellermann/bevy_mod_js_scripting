@@ -43,9 +43,13 @@ impl BevyModJsScripting {
         trace!(%op_idx, ?op_name, ?args, "Executing JS OP..");
 
         if let Some(op) = ops.get(op_idx) {
+            let type_registry = world.resource::<AppTypeRegistry>().0.clone();
+            let type_registry = type_registry.read();
+
             let context = OpContext {
                 op_state,
                 script_info,
+                type_registry: &*type_registry,
             };
             let result = op
                 .run(context, world, args)
